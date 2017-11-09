@@ -75,6 +75,162 @@ Main:
 	; code in that ISR will attempt to control the robot.
 	; If you want to take manual control of the robot,
 	; execute CLI &B0010 to disable the timer interrupt.
+
+	
+; Week 2 Testing
+; Want to see how bad the odometry error becomes after continuous patrol
+; without resetting it.
+TestOdometryError:
+	Load	Zero
+	OUT     LVELCMD     ; Stop motors
+	OUT     RVELCMD
+	STORE   DVel        ; Reset movement API variables
+	
+	; Move forward at angle 0 and velocity 350
+	STORE   DTheta	    ; Desired angle 0
+	LOAD	FMid		; Defined below as 350
+	STORE	DVel		; Desired forward velocity
+	
+TestOdForward1:
+	IN     XPOS        ; X position from odometry
+	OUT    LCD         ; Display X position for debugging
+	SUB    TwoMeter    ; Defined below as the robot units for 1 m
+	JNEG   TestOdForward1       ; Not there yet, keep checking
+
+	; once you get here, you've travelewd 2m straught forward,
+	; so stop and turn left 180 degrees
+	LOADI  0
+	OUT    LVELCMD     ; Stop motors
+	OUT    RVELCMD
+	STORE  DVel
+	;CALL   Wait1Half
+	LOADI  180
+	;STORE  DTheta
+	STORE  DManTheta
+	CALL   TestOdStopAndTurn1
+	IN		THETA
+	STORE	DTheta
+	;CALL   Wait1Half
+	LOAD	FMid		; Defined below as 350
+	STORE	DVel		; Desired forward velocity
+
+TestOdForward2:	
+	IN		XPOS
+	OUT		LCD
+	JPOS	TestOdForward2
+	
+	; stop and turn right 180 degrees
+	LOADI  0
+	OUT    LVELCMD     ; Stop motors
+	OUT    RVELCMD
+	STORE  DVel
+	;CALL   Wait1Half
+	LOADI  0
+	;STORE  DTheta
+	STORE  DManTheta
+	CALL   TestOdStopAndTurn1
+	IN		THETA
+	STORE	DTheta
+	;CALL   Wait1Half
+	LOAD	FMid		; Defined below as 350
+	STORE	DVel		; Desired forward velocity
+	
+	JUMP	TestOdometryError ; repeat forever
+
+; stop the robot and turn around using manual wheel control
+TestOdStopAndTurn1:
+	LOADI	1			; enable manual turning and disable movement API
+	STORE	ManTurnEn
+	CALL    Wait1Half	; wait and let robot stabilize
+	LOAD	FSlow	; set the velocity to low (=100) for the slowest turn possible
+	OUT		LVELCMD	; just turn left motor
+	LOAD	RSlow	; make right wheel turn opposite
+	OUT		RVELCMD
+SlowLeftTurnLoop:
+	LOAD	OneSecBeep	; initialize beep for 1/8 seconds at 500Hz
+	OUT		BEEP
+
+	CALL	GetManThetaErr	; get the heading error
+	CALL	Abs
+	OUT		LCD
+	ADDI	-5
+	LOAD	FSlow	; set the velocity to low (=100) for the slowest turn possible
+	OUT		LVELCMD	; just turn left motor
+	LOAD	RSlow	; make right wheel turn opposite
+	OUT		RVELCMD
+	JPOS	SlowLeftTurnLoop ; keep turning until error is <= 1 degree
+	
+	LOADI	0		; after the turn, stop the motors
+	OUT		LVELCMD
+	OUT		RVELCMD
+	LOADI	0			; disable manual turning and enable movement API
+	STORE	ManTurnEn
+	CALL	Wait1Half
+	RETURN
+	
+; stop the robot and turn around using movement API
+TestOdStopAndTurn: 
+	CALL   GetThetaErr ; get the heading error
+	CALL   Abs         ; absolute value subroutine
+	OUT    LCD         ; Display |angle error| for debugging
+	ADDI   -2          ; check if within 2 degrees of target angle
+	JPOS   TestOdStopAndTurn       ; if not, keep testing
+	; the robot is now within 2 degrees of 180
+	RETURN
+	
+
+; Week 1 Exercise demo
+; Want the robot to drive forward until it detects something to its right (sonar 5)
+; within 2 feet of it. Upon detection, stop, turn right 90deg, and emit a beep for
+; 1 second.
+	LOAD	OneSecBeep	; initialize beep for 1/8 seconds at 500Hz
+	OUT		BEEP        ; start beep sound
+	OUT		LCD			; just to test LCD
+	
+	LOAD    Zero
+	OUT     LVELCMD     ; Stop motors
+	OUT     RVELCMD
+	STORE   DVel        ; Reset movement API variables
+	
+						; Move forward at angle 0 and velocity 350
+	STORE   DTheta	    ; Desired angle 0
+	;LOAD	FMid		; Defined below as 350
+	LOAD	Zero		; test
+	STORE	DVel		; Desired forward velocity
+	
+	LOAD	Zero
+	ADDI	&B00100000	; Enable sonar 5
+	OUT		SONAREN
+
+WaitForSonar5Within2Feet:
+	LOAD	Zero
+	ADDI	&H262		; 2 feet in mm in hex
+	SUB		DIST5		; (2ft in mm) - (sonar 5 distance reading)
+	OUT		LCD			; display (2ft - dist)
+	CALL	Wait1
+	;JPOS	Sonar5Within2Feet
+	LOAD	DIST5
+	OUT		LCD
+	JUMP	WaitForSonar5Within2Feet
+	
+Sonar5Within2Feet:
+	LOAD    Zero
+	OUT     LVELCMD     ; Stop motors
+	OUT     RVELCMD
+	STORE   DVel        ; Reset movement API variables
+	STORE   DTheta
+	
+	LOAD	OneSecBeep	; Beep for 1 seconds at 500Hz
+	OUT		BEEP        ; Perform beep sound
+	
+	; turn right 90 degrees
+	LOADI  0
+	STORE  DVel
+	ADDI   -90
+	STORE  DTheta
+	CALL	WAIT1
+
+	JUMP 	Die
 	
 
 ; As a quick demo of the movement control, the robot is 
@@ -91,38 +247,6 @@ Main:
 	; The robot should automatically start moving,
 	; trying to match these desired parameters, because
 	; the movement API is active.
-
-; Funtion to turn on the right sonar
-OnSonar:
-	LOADI  &B00100000  ; Loading the bit for the right sonar
-	OUT  SONAREN	   ; Turning on that sonar
-
-; This function detects when the right sonar measures a distance
-; less than two feet
-Detect: 
-	LOADI  0
-	STORE  DTheta      ; Desired angle 0
-	LOAD   FMid        ; Defined below as 350.
-	STORE  DVel        ; Desired forward velocity
-	IN DIST5		   ; Reads in the sonar value
-	OUT LCD            ; Outsputs the value to lcd to read
-	SUB TwoFeet        ; Subtracts 2 feet to make desired value 0
-	JPOS Detect        ; If value is positive, go back to detect.
-
-; Function to turn right, deep and die
-StopSequence:
-	LOADI  0		   ; Loads 0
-	STORE  DVel        ; Stops the robot from moving forward
-	LOADI  -90         ; Loads -90, the angled needed to turn right
-	STORE  DTheta      ; Makes the robot turn the angle specified
-	LOADI &H40         ; Loads the frequency wanted for the beep
-	OUT BEEP           ; Makes the robot beep at that frequency
-	CALL	Wait1      ; Calls Wait1 to wait 1 second to let the robot beep
-	LOADI  &H0         ; Loads 0
-	OUT	   BEEP        ; Outputs 0 to beep to turn it off
-	JUMP DIE           ; Jumps to die to turn off the robot
-
-	
 	
 Test1:  ; P.S. "Test1" is a terrible, non-descriptive label
 	IN     XPOS        ; X position from odometry
@@ -165,10 +289,12 @@ GoTo00: ; slightly better label than "test"
 ; the angle needed to reach (0,0).  The origin is a degenerative
 ; case, but you can use a little more math to use ATAN2 to point to
 ; any coordinate.
+; formula: AtanX = desired x - current x
+;		   AtanY = desired y - current y
 	IN     XPOS        ; get the X position from odometry
 	CALL   Neg         ; negate
 	STORE  AtanX
-	IN     YPOS        ; get the X position from odometry
+	IN     YPOS        ; get the Y position from odometry
 	CALL   Neg         ; negate
 	STORE  AtanY
 	CALL   Atan2       ; Gets the angle from (0,0) to (AtanX,AtanY)
@@ -196,7 +322,6 @@ GoTo00: ; slightly better label than "test"
 
 
 
-	
 Die:
 ; Sometimes it's useful to permanently stop execution.
 ; This will also catch the execution if it accidentally
@@ -216,7 +341,22 @@ Forever:
 ; Timer ISR.  Currently just calls the movement control code.
 ; You could, however, do additional tasks here if desired.
 CTimer_ISR:
+	LOAD	ManTurnEn	; if ManTurnEn is set, skip the movement API code
+	JPOS	SkipMovementAPI
 	CALL   ControlMovement
+	JUMP	CTimer_ISRDone
+SkipMovementAPI:
+	;LOAD	DTheta
+	;STORE	PrevDTheta
+	;LOAD	DVel
+	;STORE	PrevDVel
+	;LOADI	0
+	;STORE	DVel
+	;STORE 	DTheta
+	LOADI	0
+	OUT    LVELCMD
+	OUT    RVELCMD
+CTimer_ISRDone:
 	RETI   ; return from ISR
 	
 	
@@ -298,6 +438,19 @@ GetThetaErr:
 	ADDI   -180
 	RETURN
 
+; Returns the current angular error wrapped to +/-180,
+; when using manual control (not using movement API)
+GetManThetaErr:
+	; convenient way to get angle error in +/-180 range is
+	; ((error + 180) % 360 ) - 180
+	IN     THETA
+	SUB    DManTheta    ; actual - desired angle
+	CALL   Neg         ; desired - actual angle
+	ADDI   180
+	CALL   Mod360
+	ADDI   -180
+	RETURN
+	
 ; caps a value to +/-MaxVal
 CapValue:
 	SUB     MaxVal
@@ -692,6 +845,16 @@ Wloop:
 	JNEG   Wloop
 	RETURN
 
+; Subroutine to wait (block) for 1 second
+Wait1Half:
+	OUT    TIMER
+WHalfLoop:
+	IN     TIMER
+	OUT    XLEDS       ; User-feedback that a pause is occurring.
+	ADDI   -10         ; 1 second at 10Hz.
+	JNEG   WHalfLoop
+	RETURN
+
 ; This subroutine will get the battery voltage,
 ; and stop program execution if it is too low.
 ; SetupI2C must be executed prior to this.
@@ -803,6 +966,7 @@ LowNibl:  DW &HF       ; 0000 0000 0000 1111
 
 ; some useful movement values
 OneMeter: DW 961       ; ~1m in 1.04mm units
+TwoMeter: DW 1922	   ; ~2m in 1.04mm units
 HalfMeter: DW 481      ; ~0.5m in 1.04mm units
 TwoFeet:  DW 586       ; ~2ft in 1.04mm units
 OneFoot:  DW 293       ; ~2ft in 1.04mm units
@@ -821,6 +985,10 @@ MinBatt:  DW 140       ; 14.0V - minimum safe battery voltage
 I2CWCmd:  DW &H1190    ; write one i2c byte, read one byte, addr 0x90
 I2CRCmd:  DW &H0190    ; write nothing, read one byte, addr 0x90
 
+; values we've added ourself
+OneSecBeep:	DW &H0820	; 1 second at 500Hz
+DManTheta:	DW &H0000   ; used for monitering theta when using manual control
+ManTurnEn:	DW &H0000	; set to 1 to enable manual turning and disable movement API
 
 ;***************************************************************
 ;* IO address space map
