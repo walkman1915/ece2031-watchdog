@@ -76,6 +76,7 @@ Main:
 	; If you want to take manual control of the robot,
 	; execute CLI &B0010 to disable the timer interrupt.
 	
+;I'm commenting out the demo code-TYLER
 
 ; As a quick demo of the movement control, the robot is 
 ; directed to
@@ -84,15 +85,169 @@ Main:
 ; - move forward ~1 m at a slow speed,
 ; - move back towards (0,0) at a fast speed.
 
+;	LOADI  0
+;	STORE  DTheta      ; Desired angle 0
+;	LOAD   FMid        ; Defined below as 350.
+;	STORE  DVel        ; Desired forward velocity
+	; The robot should automatically start moving,
+	; trying to match these desired parameters, because
+	; the movement API is active.
+	
+	
+	;small test to see if my function is working -TYLER
+	CALL ReadStoreValsA
+	;LOADI &H321
+	;OUT LCD
+	
+	LOAD AStore0
+	OUT   LCD
+	CALL  Wait1
+	LOAD Astore1
+	OUT   LCD
+	CALL  Wait1
+	LOAD Astore2
+	OUT   LCD
+	CALL  Wait1
+	LOAD  AStore3
+	OUT   LCD
+	JUMP  die
+	
+		
+;Assembly to get the robot to do its first patrol of the area-JONATHAN
+Patrol:
+
+;Moves the robot from "Point A" to "Point B"
+SegA:
+	LOAD   FMid        ; Defined below as 350.
+	STORE  DVel        ; Desired forward velocity
+	IN     XPOS        ; X position from odometry
+	OUT    LCD         ; Display X position for debugging
+	SUB    FiveFeet    ; Defined below as the robot units for 5 ft
+	JNEG   SegA        ; Not there yet, keep checking
+
+;Moves the robot from "Point B" to "Point C"
+SegB:
+; turn left 90 degrees
+	LOADI  0
+	STORE  DVel
+	LOADI  -90
+	STORE  DTheta
+	Call   Wait1
+LoopB:
+	LOAD   FMid        ; Defined below as 350.
+	STORE  DVel        ; Desired forward velocity
+	IN     YPOS        ; Y position from odometry
+	OUT    LCD         ; Display Y position for debugging
+	ADD    FourFeet    ; Defined below as the robot units for 4 ft
+	JPOS   LoopB       ; Not there yet, keep checking
+	
+SegC:
+	LOADI  0
+	STORE  DVel
+	OUT    RESETPOS    ; reset odometer in case wheels moved after programming
+LoopC:
 	LOADI  0
 	STORE  DTheta      ; Desired angle 0
 	LOAD   FMid        ; Defined below as 350.
 	STORE  DVel        ; Desired forward velocity
-	; The robot should automatically start moving,
-	; trying to match these desired parameters, because
-	; the movement API is active.
+	IN     XPOS        ; X position from odometry
+	OUT    LCD         ; Display X position for debugging
+	SUB    FourFeet    ; Defined below as the robot units for 4 ft
+	JNEG   LoopC       ; Not there yet, keep checking
+	
+SegD:
+; turn left 90 degrees
+	LOADI  0
+	STORE  DVel
+	LOADI  -90
+	STORE  DTheta
+	Call   Wait1
+LoopD:
+	LOAD   FMid        ; Defined below as 350.
+	STORE  DVel        ; Desired forward velocity
+	IN     YPOS        ; Y position from odometry
+	OUT    LCD         ; Display Y position for debugging
+	ADD    FiveFeet    ; Defined below as the robot units for 5 ft
+	JPOS   LoopD       ; Not there yet, keep checking
+	RETURN 			   ;return to caller
+	JUMP   Die		   ; Stops the robot at the end of its first patrol
+	
+	
+	
+	
+	
+;function to perform sonar reading using front four sensors
+;assumes that the robot is facing the correct direction
+;it will store the value in an array 
+ReadStoreValsA:
+	LOAD  mask1        ;load the mask for sensor 1
+	OR    mask2		  ;or the masks tgether to enable multiple sonars
+	OR 	  mask3		  ;or the masks tgether to enable multiple sonars
+	OR    mask4	 	  ;or the masks tgether to enable multiple sonars
+	OUT   SONAREN 	  ;enable the sonar sensors
+	
+	CALL  Wait1Half
+;	LOAD  Zero 		  ;Load zero into AC
+;	STORE Temp 		  ;make sure temp is zero to start off
+	
+	IN    Dist1        ;get the reading from sonar 1
+	STORE AStore0       ;store the first sensor reading in AStore0
+	
+	IN    Dist2        ;get the reading from sonar 2
+	STORE AStore1     ;store the first sensor reading in AStore1
+	
+	IN    Dist3        ;get the reading from sonar 3
+	STORE AStore2       ;store the first sensor reading in Astore2
+	
+	IN    Dist4        ;get the reading from sonar 4
+	STORE AStore3       ;store the first sensor reading in AStore3
+	
+	LOAD  Zero        ;load Zero into the AC
+	OUT   SONAREN     ;turn off sonar
+	
+	RETURN            ;return to caller 
+	
+	
+	
+;function to perform sonar reading using front four sensors
+;assumes that the robot is facing the correct direction
+;it will store the value in an array 
+ReadStoreValsB:
+	LOAD  mask1        ;load the mask for sensor 1
+	OR    mask2		  ;or the masks tgether to enable multiple sonars
+	OR 	  mask3		  ;or the masks tgether to enable multiple sonars
+	OR    mask4	 	  ;or the masks tgether to enable multiple sonars
+	OUT   SONAREN 	  ;enable the sonar sensors
+	
+	CALL  Wait1Half
+;	LOAD  Zero 		  ;Load zero into AC
+;	STORE Temp 		  ;make sure temp is zero to start off
+	
+	IN    Dist1        ;get the reading from sonar 1
+	STORE BStore0       ;store the first sensor reading in AStore0
+	
+	IN    Dist2        ;get the reading from sonar 2
+	STORE BStore1     ;store the first sensor reading in BStore1
+	
+	IN    Dist3        ;get the reading from sonar 3
+	STORE BStore2       ;store the first sensor reading in BStore2
+	
+	IN    Dist4        ;get the reading from sonar 4
+	STORE BStore3       ;store the first sensor reading in BStore3
+	
+	LOAD  Zero        ;load Zero into the AC
+	OUT   SONAREN     ;turn off sonar
+	
+	RETURN            ;return to caller  
+	 
+	
+	
+	
+	
+	
+	
 
-; Funtion to turn on the right sonar
+; Function to turn on the right sonar
 OnSonar:
 	LOADI  &B00100000  ; Loading the bit for the right sonar
 	OUT  SONAREN	   ; Turning on that sonar
@@ -104,23 +259,23 @@ Detect:
 	STORE  DTheta      ; Desired angle 0
 	LOAD   FMid        ; Defined below as 350.
 	STORE  DVel        ; Desired forward velocity
-	IN DIST5		   ; Reads in the sonar value
-	OUT LCD            ; Outsputs the value to lcd to read
-	SUB TwoFeet        ; Subtracts 2 feet to make desired value 0
-	JPOS Detect        ; If value is positive, go back to detect.
+	IN     DIST5	   ; Reads in the sonar value
+	OUT    LCD         ; Outsputs the value to lcd to read
+	SUB    TwoFeet     ; Subtracts 2 feet to make desired value 0
+	JPOS   Detect      ; If value is positive, go back to detect.
 
-; Function to turn right, deep and die
+; Function to turn right, beep and die
 StopSequence:
-	LOADI  0		   ; Loads 0
-	STORE  DVel        ; Stops the robot from moving forward
-	LOADI  -90         ; Loads -90, the angled needed to turn right
-	STORE  DTheta      ; Makes the robot turn the angle specified
-	LOADI &H40         ; Loads the frequency wanted for the beep
-	OUT BEEP           ; Makes the robot beep at that frequency
+	LOADI   0		   ; Loads 0
+	STORE   DVel       ; Stops the robot from moving forward
+	LOADI   -90        ; Loads -90, the angled needed to turn right
+	STORE   DTheta     ; Makes the robot turn the angle specified
+	LOADI   &H40       ; Loads the frequency wanted for the beep
+	OUT 	BEEP       ; Makes the robot beep at that frequency
 	CALL	Wait1      ; Calls Wait1 to wait 1 second to let the robot beep
-	LOADI  &H0         ; Loads 0
-	OUT	   BEEP        ; Outputs 0 to beep to turn it off
-	JUMP DIE           ; Jumps to die to turn off the robot
+	LOADI   &H0        ; Loads 0
+	OUT	    BEEP       ; Outputs 0 to beep to turn it off
+	JUMP    DIE        ; Jumps to die to turn off the robot
 
 	
 	
@@ -691,6 +846,16 @@ Wloop:
 	ADDI   -10         ; 1 second at 10Hz.
 	JNEG   Wloop
 	RETURN
+	
+; Subroutine to wait (block) for 0.1 second
+Wait1Half:
+	OUT    TIMER
+WTenthloop:
+	IN     TIMER
+	OUT    XLEDS       ; User-feedback that a pause is occurring.
+	ADDI   -5         ; 0.1 second at 10Hz.
+	JNEG   WTenthloop
+	RETURN
 
 ; This subroutine will get the battery voltage,
 ; and stop program execution if it is too low.
@@ -804,8 +969,10 @@ LowNibl:  DW &HF       ; 0000 0000 0000 1111
 ; some useful movement values
 OneMeter: DW 961       ; ~1m in 1.04mm units
 HalfMeter: DW 481      ; ~0.5m in 1.04mm units
+FiveFeet: DW 1465	   ; ~4ft in 1.04mm units
+FourFeet: DW 1172	   ; ~4ft in 1.04mm units
 TwoFeet:  DW 586       ; ~2ft in 1.04mm units
-OneFoot:  DW 293       ; ~2ft in 1.04mm units
+OneFoot:  DW 293       ; ~1ft in 1.04mm units
 Deg90:    DW 90        ; 90 degrees in odometer units
 Deg180:   DW 180       ; 180
 Deg270:   DW 270       ; 270
@@ -866,3 +1033,34 @@ RIN:      EQU &HC8
 LIN:      EQU &HC9
 IR_HI:    EQU &HD0  ; read the high word of the IR receiver (OUT will clear both words)
 IR_LO:    EQU &HD1  ; read the low word of the IR receiver (OUT will clear both words)
+
+     
+;variables to store sonar sweep at point A known values - TYLER
+;this is essentially an array that can be accessed through its base address which is ASAdd
+;this will help to shorten code above
+
+;SweepVar: DW 12     ;variable to use when trying to rotate in sweep
+
+ASAdd:    EQU Astore0 ;address of the first element in Asweep values(basically a poointer)
+
+Astore0:  DW  0 	;sensor reading from sensor 1
+Astore1:  DW  0 	;sensor reading from sensor 2
+Astore2:  DW  0	    ;sensor reading from sensor 3
+Astore3:  DW  0	    ;sensro reading from sensor 4
+
+
+
+;variables to store sonar sweep at point B known values - TYLER
+;this is essentially an array that can be accessed through its base address which is BSAdd
+;this will help to shorten code above
+
+;SweepVar: DW 12     ;variable to use when trying to rotate in sweep
+
+BSAdd:    EQU Bstore0 ;address of the first element in Asweep values(basically a poointer)
+
+Bstore0:  DW  0 	;sensor reading from sensor 1
+Bstore1:  DW  0 	;sensor reading from sensor 2
+Bstore2:  DW  0	    ;sensor reading from sensor 3
+Bstore3:  DW  0	    ;sensro reading from sensor 4
+
+
