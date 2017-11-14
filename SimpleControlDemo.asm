@@ -103,14 +103,11 @@ TestOdForward1:
 	OUT    LVELCMD     ; Stop motors
 	OUT    RVELCMD
 	STORE  DVel
-	;CALL   Wait1Half
-	LOADI  180
-	;STORE  DTheta
+	LOADI  180		; this is the desired turn amount
 	STORE  DManTheta
-	CALL   TestOdStopAndTurn1
-	IN		THETA
-	STORE	DTheta
-	;CALL   Wait1Half
+	LOAD   FSlow	; this is the desired turn speed
+	STORE  DManTurnVel
+	CALL   TurnVariableSpeed
 	LOAD	FMid		; Defined below as 350
 	STORE	DVel		; Desired forward velocity
 
@@ -124,59 +121,56 @@ TestOdForward2:
 	OUT    LVELCMD     ; Stop motors
 	OUT    RVELCMD
 	STORE  DVel
-	;CALL   Wait1Half
 	LOADI  0
-	;STORE  DTheta
 	STORE  DManTheta
-	CALL   TestOdStopAndTurn1
-	IN		THETA
-	STORE	DTheta
-	;CALL   Wait1Half
+	LOAD   FSlow	; this is the desired turn speed
+	STORE  DManTurnVel
+	CALL   TurnVariableSpeed
 	LOAD	FMid		; Defined below as 350
 	STORE	DVel		; Desired forward velocity
 	
 	JUMP	TestOdometryError ; repeat forever
 
-; stop the robot and turn around using manual wheel control
-TestOdStopAndTurn1:
+; ************************************************************************************
+; * Allows the robot to turn in place at a given speed.
+; * Turning at a slow speed results in less slippage and odometry error.
+; *
+; * To use, store values for these before calling:
+; * 	DManTheta - the desired theta value to be facing when the call is returned
+; *		DManTurnVal - the velocity to turn at; recommend 100 (ie FSlow)
+; *************************************************************************************
+TurnVariableSpeed:
 	LOADI	1			; enable manual turning and disable movement API
 	STORE	ManTurnEn
-	CALL    Wait1Half	; wait and let robot stabilize
-	LOAD	FSlow	; set the velocity to low (=100) for the slowest turn possible
-	OUT		LVELCMD	; just turn left motor
-	LOAD	RSlow	; make right wheel turn opposite
+	CALL    Wait1Fifth ; wait and let robot stabilize
+	LOAD	DManTurnVel	; set the velocity for the turn speed
+	OUT		LVELCMD		; just turn left motor
+	CALL	Neg			; make right wheel turn opposite velocity
 	OUT		RVELCMD
-SlowLeftTurnLoop:
-	LOAD	OneSecBeep	; initialize beep for 1/8 seconds at 500Hz
-	OUT		BEEP
 
+LoopTurnVariableSpeed:
+	LOAD	DManTurnVel	; set the velocity for the turn speed
+	OUT		LVELCMD		; just turn left motor
+	CALL	Neg			; make right wheel turn opposite velocity
+	OUT		RVELCMD
 	CALL	GetManThetaErr	; get the heading error
 	CALL	Abs
 	OUT		LCD
-	ADDI	-5
-	LOAD	FSlow	; set the velocity to low (=100) for the slowest turn possible
-	OUT		LVELCMD	; just turn left motor
-	LOAD	RSlow	; make right wheel turn opposite
-	OUT		RVELCMD
-	JPOS	SlowLeftTurnLoop ; keep turning until error is <= 1 degree
+	ADDI	-2			; this is desired accuracy
+	JPOS	LoopTurnVariableSpeed ; keep turning until error is <= 2 degrees
 	
+	IN		THETA
+	STORE	DTheta	; want the movement API not to try and turn it once control resumes
 	LOADI	0		; after the turn, stop the motors
 	OUT		LVELCMD
 	OUT		RVELCMD
-	LOADI	0			; disable manual turning and enable movement API
+	LOADI	0		; disable manual turning and re-enable movement API
 	STORE	ManTurnEn
-	CALL	Wait1Half
+	CALL	Wait1Fifth
 	RETURN
-	
-; stop the robot and turn around using movement API
-TestOdStopAndTurn: 
-	CALL   GetThetaErr ; get the heading error
-	CALL   Abs         ; absolute value subroutine
-	OUT    LCD         ; Display |angle error| for debugging
-	ADDI   -2          ; check if within 2 degrees of target angle
-	JPOS   TestOdStopAndTurn       ; if not, keep testing
-	; the robot is now within 2 degrees of 180
-	RETURN
+DManTheta:	 DW	0		; desired theta; the robot will be facing here +-2 degrees when finished
+DManTurnVel: DW 0		; desired turn speed; 100 is slowest, 500 is fastest; faster speed = more slipping
+ManTurnEn:	 DW &H0000	; set to 1 to enable manual turning and disable movement API
 	
 
 ; Week 1 Exercise demo
@@ -845,13 +839,23 @@ Wloop:
 	JNEG   Wloop
 	RETURN
 
-; Subroutine to wait (block) for 1 second
+; Subroutine to wait (block) for 1/5 second
+Wait1Fifth:
+	OUT    TIMER
+WFifthLoop:
+	IN     TIMER
+	OUT    XLEDS       ; User-feedback that a pause is occurring.
+	ADDI   -2          ; 0.2 second at 10Hz.
+	JNEG   WHalfLoop
+	RETURN
+
+; Subroutine to wait (block) for 1/2 second
 Wait1Half:
 	OUT    TIMER
 WHalfLoop:
 	IN     TIMER
 	OUT    XLEDS       ; User-feedback that a pause is occurring.
-	ADDI   -10         ; 1 second at 10Hz.
+	ADDI   -5          ; 1/2 second at 10Hz.
 	JNEG   WHalfLoop
 	RETURN
 
@@ -987,8 +991,6 @@ I2CRCmd:  DW &H0190    ; write nothing, read one byte, addr 0x90
 
 ; values we've added ourself
 OneSecBeep:	DW &H0820	; 1 second at 500Hz
-DManTheta:	DW &H0000   ; used for monitering theta when using manual control
-ManTurnEn:	DW &H0000	; set to 1 to enable manual turning and disable movement API
 
 ;***************************************************************
 ;* IO address space map
