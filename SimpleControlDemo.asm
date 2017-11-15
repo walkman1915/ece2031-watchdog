@@ -224,15 +224,19 @@ ReadStoreValsB:
 ;	STORE Temp 		  ;make sure temp is zero to start off
 	
 	IN    Dist1        ;get the reading from sonar 1
+	ADDI  -304			;subtract one foot from this measurement to use in checking for object later   
 	STORE BStore0       ;store the first sensor reading in AStore0
 	
 	IN    Dist2        ;get the reading from sonar 2
+	ADDI  -304			;subtract one foot from this measurement to use in checking for object later
 	STORE BStore1     ;store the first sensor reading in BStore1
 	
 	IN    Dist3        ;get the reading from sonar 3
+	ADDI  -304			;subtract one foot from this measurement to use in checking for object later
 	STORE BStore2       ;store the first sensor reading in BStore2
 	
 	IN    Dist4        ;get the reading from sonar 4
+	ADDI  -304			;subtract one foot from this measurement to use in checking for object later
 	STORE BStore3       ;store the first sensor reading in BStore3
 	
 	LOAD  Zero        ;load Zero into the AC
@@ -240,6 +244,91 @@ ReadStoreValsB:
 	
 	RETURN            ;return to caller  
 	 
+	
+;TODO: implement simpler patrol path
+;TODO: implement interrupts to detect object in front of us
+
+
+
+;function to fire the front four sonars and detect if something has changed
+;assumes the robot is facing the correct direction
+;it will beep if something is detected whithin a threshold of 1 foot
+ReadCompareValsA:
+	LOAD  mask1        ;load the mask for sensor 1
+	OR    mask2		  ;or the masks tgether to enable multiple sonars
+	OR 	  mask3		  ;or the masks tgether to enable multiple sonars
+	OR    mask4	 	  ;or the masks tgether to enable multiple sonars
+	OUT   SONAREN 	  ;enable the sonar sensors
+	
+	CALL  Wait1Half   ;tell robot to wait in order to give sonar time to setup
+	
+	IN    Dist1       ;get the value from sonar sensor 1
+	SUB   AStore0     ;subtract the previous value from new value 
+	JNEG  FOUNDA       ;if the distance is too close the intruder is there
+	
+	IN    Dist2       ;get the value from sonar sensor 2
+	SUB   AStore1     ;subtract the previous value from new value 
+	JNEG  FOUNDA       ;if the distance is too close the intruder is there
+	
+	IN    Dist3       ;get the value from sonar sensor 3
+	SUB   AStore0     ;subtract the previous value from new value 
+	JNEG  FOUNDA       ;if the distance is too close the intruder is there
+	
+	IN    Dist4       ;get the value from sonar sensor 4
+	SUB   AStore0     ;subtract the previous value from new value 
+	JNEG  FOUNDA       ;if the distance is too close the intruder is there
+	RETURN            ;if not found return to caller
+	
+FOUNDA:
+    CALL  FoundIntruder ;if there is something there then beep!
+    RETURN             ;return to caller
+    
+    
+    
+;function to fire the front four sonars and detect if something has changed
+;assumes the robot is facing the correct direction
+;it will beep if something is detected whithin a threshold of 1 foot
+ReadCompareValsB:
+	LOAD  mask1        ;load the mask for sensor 1
+	OR    mask2		  ;or the masks tgether to enable multiple sonars
+	OR 	  mask3		  ;or the masks tgether to enable multiple sonars
+	OR    mask4	 	  ;or the masks tgether to enable multiple sonars
+	OUT   SONAREN 	  ;enable the sonar sensors
+	
+	CALL  Wait1Half   ;tell robot to wait in order to give sonar time to setup
+	
+	IN    Dist1       ;get the value from sonar sensor 1
+	SUB   BStore0     ;subtract the previous value from new value 
+	JNEG  FOUNDB       ;if the distance is too close the intruder is there
+	
+	IN    Dist2       ;get the value from sonar sensor 2
+	SUB   BStore1     ;subtract the previous value from new value 
+	JNEG  FOUNDB       ;if the distance is too close the intruder is there
+	
+	IN    Dist3       ;get the value from sonar sensor 3
+	SUB   BStore0     ;subtract the previous value from new value 
+	JNEG  FOUNDB      ;if the distance is too close the intruder is there
+	
+	IN    Dist4       ;get the value from sonar sensor 4
+	SUB   BStore0     ;subtract the previous value from new value 
+	JNEG  FOUNDB      ;if the distance is too close the intruder is there
+	RETURN            ;if not found return to caller
+	
+FOUNDB:
+    CALL  FoundIntruder ;if there is something there then beep!
+    RETURN             ;return to caller
+	
+	
+	
+	
+;function to sound a beep when an intruder is located in the area
+FoundIntruder:
+	LOADI &H40        ;load in the frequency to make it beep
+	OUT   BEEP 		  ;tell the robot to beep
+	CALL  Wait1       ;tell robot to wait one second in order to let it beep
+	LOADI &H00	      ;Load in new value to make beep stop
+	OUT   BEEP        ;tell beep to stop 
+	RETURN            ;return to caller
 	
 	
 	
