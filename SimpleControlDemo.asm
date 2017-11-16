@@ -75,6 +75,28 @@ Main:
 	; code in that ISR will attempt to control the robot.
 	; If you want to take manual control of the robot,
 	; execute CLI &B0010 to disable the timer interrupt.
+	
+
+; Week 3 Testing: odometry correction while at top of baffle
+	Load	Zero
+	OUT     LVELCMD     ; Stop motors
+	OUT     RVELCMD
+	STORE   DVel        ; Reset movement API variables
+	
+	; Move forward at angle 0 and velocity 350
+	STORE   DTheta	    ; Desired angle 0
+	LOAD	FMid		; Defined below as 350
+	STORE	DVel		; Desired forward velocity
+	
+	CALL	Wait1
+	CALL	Wait1
+	
+	CALL	CorrectPathError
+	
+	CALL	Wait1
+	CALL	Wait1
+	CALL 	Wait1
+	JUMP	Die
 
 	
 ; Week 2 Testing
@@ -252,17 +274,24 @@ MeasureLRDistance:
 	CALL	Wait1Half	; give the sonars time to enable and fire
 	
 	IN		Dist0		; get sonar 0's reading and store it
-	STORE	LDist
+	STORE	ActualLDist
+	
+	; debugging
+	;OUT		LCD
+	;CALL	Wait1
+	;CALL	Wait1
+	;CALL	Wait1
+	; debugging
 	
 	IN		Dist5		; get sonar 0's reading and store it
-	STORE	RDist
+	STORE	ActualRDist
 	
 	LOAD	Zero		; disable sonar
 	OUT		SONAREN
 	
 	RETURN
-LDist:		DW 0		; stores the sonar reading from sonar 0
-RDist:		DW 0		; stores the sonar reading from sonar 5
+ActualLDist: DW 0		; stores the sonar reading from sonar 0
+ActualRDist: DW 0		; stores the sonar reading from sonar 5
 
 
 ;************************************************************************
@@ -270,10 +299,76 @@ RDist:		DW 0		; stores the sonar reading from sonar 5
 ; the amount of correction to apply in order to try to get back on
 ; the original patrol path.
 ;************************************************************************
+CorrectPathError:
+	CALL	MeasureLRDistance
 	
+	LOAD	IdealLDist
+	; debugging
+	;OUT		LCD
+	;CALL	Wait1
+	;CALL	Wait1
+	;CALL	Wait1
+	;LOAD	IdealLDist
+	; debugging
+	SUB		ActualLDist	; these two lines give the error from our intended path
+	STORE	LDistError
+	
+	CALL	Abs			; we don't want to correct anything if we're off the line by less than 50mm
+	; debugging
+	;OUT		LCD
+	;CALL	Wait1
+	;CALL	Wait1
+	;CALL	Wait1
+	;LOAD	LDistError
+	;CALL	Abs
+	; debugging
+	ADDI	-50
+	JNEG	DoneWithCorrection
+	
+	; otherwise, we need to figure out which way to correct
+	LOAD	DTheta		; save original heading so we can get back
+	STORE	OldDTheta
+	
+	LOAD	LDistError
+	JNEG	MoveLeftToCorrect	; if LDistError < 0, we're to the right of the path and need to move to the left
+	JUMP	MoveRightToCorrect	; otherwise, we're to the left of the path and need to move to the right
+MoveLeftToCorrect:
+	LOAD	DTheta
+	
+	; TODO: make a variable to change the sign depending on if the robot is going forward or backwards on the path
+	ADDI	10
+	STORE	DTheta	; set the correction angle at +10 deg
+	
+	; TODO: make this adaptive to turn more for a worse error
+	CALL	Wait1	; wait 1 second
+	CALL	Wait1
+	
+	LOAD	OldDTheta	; restore original DTheta (ie return to original course heading)
+	STORE	DTheta
+	JUMP	DoneWithCorrection
+MoveRightToCorrect:
+	LOAD	DTheta
+	
+	; TODO: make a variable to change the sign depending on if the robot is going forward or backwards on the path
+	ADDI	-10
+	STORE	DTheta	; set the correction angle at +10 deg
+	
+	; TODO: make this adaptive to turn more for a worse error
+	CALL	Wait1	; wait 1 second
+	
+	LOAD	OldDTheta	; restore original DTheta (ie return to original course heading)
+	STORE	DTheta
+	JUMP	DoneWithCorrection
+DoneWithCorrection:
+	RETURN
+
 
 TotalHallWidth: DW	1660 ; the distance (in mm) between the top of the baffle and the wall
 RobotWidth:		DW	210	 ; the distance across the robot (in mm) from sonar 0 to sonar 5
+IdealLDist:		DW  725	 ; the ideal distance (in mm) read from each sonar of the robot is perfectly centered (calculate this manually at the beginning)
+IdealRDist:		DW	725
+LDistError:		DW  0
+OldDTheta:		DW  0	 ; the previous value of DTheta; need this in order to return to original heading after making the correction
 
 
 ; Week 1 Exercise demo
