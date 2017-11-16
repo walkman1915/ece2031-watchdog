@@ -92,22 +92,22 @@ TestOdometryError:
 	STORE	DVel		; Desired forward velocity
 	
 TestOdForward1:
-	IN     XPOS        ; X position from odometry
-	OUT    LCD         ; Display X position for debugging
-	SUB    TwoMeter    ; Defined below as the robot units for 1 m
-	JNEG   TestOdForward1       ; Not there yet, keep checking
+	IN      XPOS        ; X position from odometry
+	OUT     LCD         ; Display X position for debugging
+	SUB     TwoMeter    ; Defined below as the robot units for 1 m
+	JNEG    TestOdForward1       ; Not there yet, keep checking
 
 	; once you get here, you've travelewd 2m straught forward,
 	; so stop and turn left 180 degrees
-	LOADI  0
-	OUT    LVELCMD     ; Stop motors
-	OUT    RVELCMD
-	STORE  DVel
-	LOADI  180		; this is the desired turn amount
-	STORE  DManTheta
-	LOAD   FSlow	; this is the desired turn speed
-	STORE  DManTurnVel
-	CALL   TurnVariableSpeed
+	LOADI   0
+	OUT     LVELCMD     ; Stop motors
+	OUT     RVELCMD
+	STORE   DVel
+	LOADI   90		; this is the desired turn amount
+	STORE   DManTheta
+	LOAD    FSlow	; this is the desired turn speed
+	STORE   DManTurnVel
+	CALL    TurnVariableSpeed
 	LOAD	FMid		; Defined below as 350
 	STORE	DVel		; Desired forward velocity
 
@@ -117,38 +117,58 @@ TestOdForward2:
 	JPOS	TestOdForward2
 	
 	; stop and turn right 180 degrees
-	LOADI  0
-	OUT    LVELCMD     ; Stop motors
-	OUT    RVELCMD
-	STORE  DVel
-	LOADI  0
-	STORE  DManTheta
-	LOAD   FSlow	; this is the desired turn speed
-	STORE  DManTurnVel
-	CALL   TurnVariableSpeed
+	LOADI   0
+	OUT     LVELCMD     ; Stop motors
+	OUT     RVELCMD
+	STORE   DVel
+	LOADI   -90
+	STORE   DManTheta
+	LOAD    FSlow	; this is the desired turn speed
+	STORE   DManTurnVel
+	CALL	TurnVariableSpeed
 	LOAD	FMid		; Defined below as 350
 	STORE	DVel		; Desired forward velocity
 	
 	JUMP	TestOdometryError ; repeat forever
 
-; ************************************************************************************
-; * Allows the robot to turn in place at a given speed.
-; * Turning at a slow speed results in less slippage and odometry error.
-; *
-; * To use, store values for these before calling:
-; * 	DManTheta - the desired theta value to be facing when the call is returned
-; *		DManTurnVal - the velocity to turn at; recommend 100 (ie FSlow)
-; *************************************************************************************
+;************************************************************************************
+; Allows the robot to turn in place at a given speed.
+; Turning at a slow speed results in less slippage and odometry error.
+; 
+; To use, store values for these before calling:
+; 	DManTheta - the desired theta value to be facing when the call is returned
+; 	DManTurnVal - the velocity to turn at; recommend 100 (ie FSlow)
+;*************************************************************************************
 TurnVariableSpeed:
 	LOADI	1			; enable manual turning and disable movement API
 	STORE	ManTurnEn
-	CALL    Wait1Fifth ; wait and let robot stabilize
+	CALL    Wait1Fifth  ; wait and let robot stabilize
+	
+	CALL	DetermineTurnDir  ; if this sets IsTurnLeft = 1, turn left; else turn right
+	LOAD	IsTurnLeft
+	JZERO	TurnRightVarSpeedHelper
+	; otherwise, turn left
 	LOAD	DManTurnVel	; set the velocity for the turn speed
-	OUT		LVELCMD		; just turn left motor
+	OUT		RVELCMD		; just turn right motor forward
+	CALL	Neg			; make left wheel turn opposite velocity
+	OUT		LVELCMD
+LoopTurnLeftVariableSpeed:
+	LOAD	DManTurnVel	; set the velocity for the turn speed
+	OUT		RVELCMD		; just turn right motor forward
+	CALL	Neg			; make left wheel turn opposite velocity
+	OUT		LVELCMD
+	CALL	GetManThetaErr	; get the heading error
+	CALL	Abs
+	OUT		LCD
+	ADDI	-2			; this is desired accuracy
+	JPOS	LoopTurnLeftVariableSpeed ; keep turning until error is <= 2 degrees
+	JUMP	DoneTurnVariableSpeed
+TurnRightVarSpeedHelper:
+	LOAD	DManTurnVel	; set the velocity for the turn speed
+	OUT		LVELCMD		; just turn left motor forward
 	CALL	Neg			; make right wheel turn opposite velocity
 	OUT		RVELCMD
-
-LoopTurnVariableSpeed:
+LoopTurnRightVariableSpeed:
 	LOAD	DManTurnVel	; set the velocity for the turn speed
 	OUT		LVELCMD		; just turn left motor
 	CALL	Neg			; make right wheel turn opposite velocity
@@ -157,8 +177,8 @@ LoopTurnVariableSpeed:
 	CALL	Abs
 	OUT		LCD
 	ADDI	-2			; this is desired accuracy
-	JPOS	LoopTurnVariableSpeed ; keep turning until error is <= 2 degrees
-	
+	JPOS	LoopTurnRightVariableSpeed ; keep turning until error is <= 2 degrees
+DoneTurnVariableSpeed:
 	IN		THETA
 	STORE	DTheta	; want the movement API not to try and turn it once control resumes
 	LOADI	0		; after the turn, stop the motors
@@ -171,7 +191,90 @@ LoopTurnVariableSpeed:
 DManTheta:	 DW	0		; desired theta; the robot will be facing here +-2 degrees when finished
 DManTurnVel: DW 0		; desired turn speed; 100 is slowest, 500 is fastest; faster speed = more slipping
 ManTurnEn:	 DW &H0000	; set to 1 to enable manual turning and disable movement API
+
+;***************************************************************
+; Determines the direction for the manual turn.
+; If abs(THETA - DManTheta)>=180, then turn right,
+; else turn left.
+;
+; This function doesn't actually turn; it sets an indicator bit
+; IsTurnLeft = 1 means left turn; = 0 means right turn
+;***************************************************************
+DetermineTurnDir:
+	IN		THETA
+	SUB		DManTheta
+	CALL	Abs
+	SUB		Pos180
+	JNEG	SetTurnLeft		; if abs(THETA - DManTheta) >= 180, turn right
+	LOADI	0
+	STORE	IsTurnLeft
+	JUMP	DoneDetermineTurnDir
+SetTurnLeft:
+	LOADI	1
+	STORE	IsTurnLeft
+DoneDetermineTurnDir:	
+	RETURN
+IsTurnLeft:	DW	0
+Pos180:		DW 180
+
+; Returns the current angular error wrapped to +/-180,
+; when using manual control (not using movement API)
+GetManThetaErr:
+	; convenient way to get angle error in +/-180 range is
+	; ((error + 180) % 360 ) - 180
+	IN     THETA
+	SUB    DManTheta    ; actual - desired angle
+	CALL   Neg         ; desired - actual angle
+	ADDI   180
+	CALL   Mod360
+	ADDI   -180
+	RETURN
+
+; Subroutine to wait (block) for 1/5 second
+Wait1Fifth:
+	OUT    TIMER
+WFifthLoop:
+	IN     TIMER
+	OUT    XLEDS       ; User-feedback that a pause is occurring.
+	ADDI   -2          ; 0.2 second at 10Hz.
+	JNEG   WHalfLoop
+	RETURN
+
+
+;************************************************************************
+; Enables sonar, reads the distances directly to the left and right,
+; (sonars 0 and 5), stores these values, then disables sonar
+;************************************************************************
+MeasureLRDistance:
+	LOAD	Mask0		; prep to enable sonars 0 and 5 (90deg left and right)
+	OR		Mask5
+	OUT		SONAREN		; enable sonars 0 and 5
+	CALL	Wait1Half	; give the sonars time to enable and fire
 	
+	IN		Dist0		; get sonar 0's reading and store it
+	STORE	LDist
+	
+	IN		Dist5		; get sonar 0's reading and store it
+	STORE	RDist
+	
+	LOAD	Zero		; disable sonar
+	OUT		SONAREN
+	
+	RETURN
+LDist:		DW 0		; stores the sonar reading from sonar 0
+RDist:		DW 0		; stores the sonar reading from sonar 5
+
+
+;************************************************************************
+; Uses the LDist and RDist values from MeasureLRDistance to determine
+; the amount of correction to apply in order to try to get back on
+; the original patrol path.
+;************************************************************************
+	
+
+TotalHallWidth: DW	1660 ; the distance (in mm) between the top of the baffle and the wall
+RobotWidth:		DW	210	 ; the distance across the robot (in mm) from sonar 0 to sonar 5
+
 
 ; Week 1 Exercise demo
 ; Want the robot to drive forward until it detects something to its right (sonar 5)
@@ -426,19 +529,6 @@ GetThetaErr:
 	; ((error + 180) % 360 ) - 180
 	IN     THETA
 	SUB    DTheta      ; actual - desired angle
-	CALL   Neg         ; desired - actual angle
-	ADDI   180
-	CALL   Mod360
-	ADDI   -180
-	RETURN
-
-; Returns the current angular error wrapped to +/-180,
-; when using manual control (not using movement API)
-GetManThetaErr:
-	; convenient way to get angle error in +/-180 range is
-	; ((error + 180) % 360 ) - 180
-	IN     THETA
-	SUB    DManTheta    ; actual - desired angle
 	CALL   Neg         ; desired - actual angle
 	ADDI   180
 	CALL   Mod360
@@ -839,15 +929,6 @@ Wloop:
 	JNEG   Wloop
 	RETURN
 
-; Subroutine to wait (block) for 1/5 second
-Wait1Fifth:
-	OUT    TIMER
-WFifthLoop:
-	IN     TIMER
-	OUT    XLEDS       ; User-feedback that a pause is occurring.
-	ADDI   -2          ; 0.2 second at 10Hz.
-	JNEG   WHalfLoop
-	RETURN
 
 ; Subroutine to wait (block) for 1/2 second
 Wait1Half:
