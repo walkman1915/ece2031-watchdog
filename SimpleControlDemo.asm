@@ -6,7 +6,8 @@
 ORG 0                  ; Jump table is located in mem 0-4
 ; This code uses the timer interrupt for the control code.
 	JUMP   Init        ; Reset vector
-	RETI               ; Sonar interrupt (unused)
+;I'm enabling sonar interrupts in order to stop the robot when something is in fron of us
+	JUMP   SIR         ; Sonar interrupt (unused)
 	JUMP   CTimer_ISR  ; Timer interrupt
 	RETI               ; UART interrupt (unused)
 	RETI               ; Motor stall interrupt (unused)
@@ -76,110 +77,29 @@ Main:
 	; If you want to take manual control of the robot,
 	; execute CLI &B0010 to disable the timer interrupt.
 	
-;I'm commenting out the demo code-TYLER
 
-; As a quick demo of the movement control, the robot is 
-; directed to
-; - move forward ~1 m at a medium speed,
-; - turn left 90 degrees,
-; - move forward ~1 m at a slow speed,
-; - move back towards (0,0) at a fast speed.
+	
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;CODE ADDED BY TEAM BAFFLED TO IMPLEMENT THE WATCHDOG PROJECT ALGORITHM BELOW;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;	LOADI  0
-;	STORE  DTheta      ; Desired angle 0
-;	LOAD   FMid        ; Defined below as 350.
-;	STORE  DVel        ; Desired forward velocity
-	; The robot should automatically start moving,
-	; trying to match these desired parameters, because
-	; the movement API is active.
-	
-	
-	;small test to see if my function is working -TYLER
-	CALL ReadStoreValsA
-	;LOADI &H321
-	;OUT LCD
-	
-	LOAD AStore0
-	OUT   LCD
-	CALL  Wait1
-	LOAD Astore1
-	OUT   LCD
-	CALL  Wait1
-	LOAD Astore2
-	OUT   LCD
-	CALL  Wait1
-	LOAD  AStore3
-	OUT   LCD
-	JUMP  die
-	
-		
-;Assembly to get the robot to do its first patrol of the area-JONATHAN
-Patrol:
 
-;Moves the robot from "Point A" to "Point B"
-SegA:
-	LOAD   FMid        ; Defined below as 350.
-	STORE  DVel        ; Desired forward velocity
-	IN     XPOS        ; X position from odometry
-	OUT    LCD         ; Display X position for debugging
-	SUB    FiveFeet    ; Defined below as the robot units for 5 ft
-	JNEG   SegA        ; Not there yet, keep checking
+;TODO: implement simpler patrol path
 
-;Moves the robot from "Point B" to "Point C"
-SegB:
-; turn left 90 degrees
-	LOADI  0
-	STORE  DVel
-	LOADI  -90
-	STORE  DTheta
-	Call   Wait1
-LoopB:
-	LOAD   FMid        ; Defined below as 350.
-	STORE  DVel        ; Desired forward velocity
-	IN     YPOS        ; Y position from odometry
-	OUT    LCD         ; Display Y position for debugging
-	ADD    FourFeet    ; Defined below as the robot units for 4 ft
-	JPOS   LoopB       ; Not there yet, keep checking
-	
-SegC:
-	LOADI  0
-	STORE  DVel
-	OUT    RESETPOS    ; reset odometer in case wheels moved after programming
-LoopC:
-	LOADI  0
-	STORE  DTheta      ; Desired angle 0
-	LOAD   FMid        ; Defined below as 350.
-	STORE  DVel        ; Desired forward velocity
-	IN     XPOS        ; X position from odometry
-	OUT    LCD         ; Display X position for debugging
-	SUB    FourFeet    ; Defined below as the robot units for 4 ft
-	JNEG   LoopC       ; Not there yet, keep checking
-	
-SegD:
-; turn left 90 degrees
-	LOADI  0
-	STORE  DVel
-	LOADI  -90
-	STORE  DTheta
-	Call   Wait1
-LoopD:
-	LOAD   FMid        ; Defined below as 350.
-	STORE  DVel        ; Desired forward velocity
-	IN     YPOS        ; Y position from odometry
-	OUT    LCD         ; Display Y position for debugging
-	ADD    FiveFeet    ; Defined below as the robot units for 5 ft
-	JPOS   LoopD       ; Not there yet, keep checking
-	RETURN 			   ;return to caller
-	JUMP   Die		   ; Stops the robot at the end of its first patrol
-	
-	
-	
+;;DO NOT CHANGE, USED FOR SONAR INTERUPTS;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LOAD  mask2         ;load in mask to enable the sonar sensor 2                       ;;
+OR    mask3         ;or the two masks so that I can enable both sensors              ;;
+OUT   SONAREN       ;enable the two sensors for use in software interrupts for sonar ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+
 	
 	
 ;function to perform sonar reading using front four sensors
 ;assumes that the robot is facing the correct direction
 ;it will store the value in an array 
-ReadStoreValsA:
+ReadStoreValsA45:
 	LOAD  mask1        ;load the mask for sensor 1
 	OR    mask2		  ;or the masks tgether to enable multiple sonars
 	OR 	  mask3		  ;or the masks tgether to enable multiple sonars
@@ -191,16 +111,56 @@ ReadStoreValsA:
 ;	STORE Temp 		  ;make sure temp is zero to start off
 	
 	IN    Dist1        ;get the reading from sonar 1
+	ADDI  -304			;subtract one foot from this measurement to use in checking for object later 
 	STORE AStore0       ;store the first sensor reading in AStore0
 	
 	IN    Dist2        ;get the reading from sonar 2
+	ADDI  -304			;subtract one foot from this measurement to use in checking for object later 
 	STORE AStore1     ;store the first sensor reading in AStore1
 	
 	IN    Dist3        ;get the reading from sonar 3
+	ADDI  -304			;subtract one foot from this measurement to use in checking for object later 
 	STORE AStore2       ;store the first sensor reading in Astore2
 	
 	IN    Dist4        ;get the reading from sonar 4
+	ADDI  -304			;subtract one foot from this measurement to use in checking for object later 
 	STORE AStore3       ;store the first sensor reading in AStore3
+	
+	LOAD  Zero        ;load Zero into the AC
+	OUT   SONAREN     ;turn off sonar
+	
+	RETURN            ;return to caller
+	
+	
+;function to perform sonar reading using front four sensors
+;assumes that the robot is facing the correct direction
+;it will store the value in an array 
+ReadStoreValsA90:
+	LOAD  mask1        ;load the mask for sensor 1
+	OR    mask2		  ;or the masks tgether to enable multiple sonars
+	OR 	  mask3		  ;or the masks tgether to enable multiple sonars
+	OR    mask4	 	  ;or the masks tgether to enable multiple sonars
+	OUT   SONAREN 	  ;enable the sonar sensors
+	
+	CALL  Wait1Half
+;	LOAD  Zero 		  ;Load zero into AC
+;	STORE Temp 		  ;make sure temp is zero to start off
+	
+	IN    Dist1        ;get the reading from sonar 1
+	ADDI  -304			;subtract one foot from this measurement to use in checking for object later 
+	STORE AStore4       ;store the first sensor reading in AStore0
+	
+	IN    Dist2        ;get the reading from sonar 2
+	ADDI  -304			;subtract one foot from this measurement to use in checking for object later 
+	STORE AStore5     ;store the first sensor reading in AStore1
+	
+	IN    Dist3        ;get the reading from sonar 3
+	ADDI  -304			;subtract one foot from this measurement to use in checking for object later 
+	STORE AStore6       ;store the first sensor reading in Astore2
+	
+	IN    Dist4        ;get the reading from sonar 4
+	ADDI  -304			;subtract one foot from this measurement to use in checking for object later 
+	STORE AStore7       ;store the first sensor reading in AStore3
 	
 	LOAD  Zero        ;load Zero into the AC
 	OUT   SONAREN     ;turn off sonar
@@ -208,11 +168,49 @@ ReadStoreValsA:
 	RETURN            ;return to caller 
 	
 	
+;function to perform sonar reading using front four sensors
+;assumes that the robot is facing the correct direction
+;it will store the value in an array 
+ReadStoreValsA135:
+	LOAD  mask1        ;load the mask for sensor 1
+	OR    mask2		  ;or the masks tgether to enable multiple sonars
+	OR 	  mask3		  ;or the masks tgether to enable multiple sonars
+	OR    mask4	 	  ;or the masks tgether to enable multiple sonars
+	OUT   SONAREN 	  ;enable the sonar sensors
+	
+	CALL  Wait1Half
+;	LOAD  Zero 		  ;Load zero into AC
+;	STORE Temp 		  ;make sure temp is zero to start off
+	
+	IN    Dist1        ;get the reading from sonar 1
+	ADDI  -304			;subtract one foot from this measurement to use in checking for object later 
+	STORE AStore8       ;store the first sensor reading in AStore0
+	
+	IN    Dist2        ;get the reading from sonar 2
+	ADDI  -304			;subtract one foot from this measurement to use in checking for object later 
+	STORE AStore9     ;store the first sensor reading in AStore1
+	
+	IN    Dist3        ;get the reading from sonar 3
+	ADDI  -304			;subtract one foot from this measurement to use in checking for object later 
+	STORE AStore10       ;store the first sensor reading in Astore2
+	
+	IN    Dist4        ;get the reading from sonar 4
+	ADDI  -304			;subtract one foot from this measurement to use in checking for object later 
+	STORE AStore11      ;store the first sensor reading in AStore3
+	
+	LOAD  Zero        ;load Zero into the AC
+	OUT   SONAREN     ;turn off sonar
+	
+	RETURN            ;return to caller
+	
+
+	
+		
 	
 ;function to perform sonar reading using front four sensors
 ;assumes that the robot is facing the correct direction
 ;it will store the value in an array 
-ReadStoreValsB:
+ReadStoreValsB45:
 	LOAD  mask1        ;load the mask for sensor 1
 	OR    mask2		  ;or the masks tgether to enable multiple sonars
 	OR 	  mask3		  ;or the masks tgether to enable multiple sonars
@@ -243,17 +241,89 @@ ReadStoreValsB:
 	OUT   SONAREN     ;turn off sonar
 	
 	RETURN            ;return to caller  
+	
+	
 	 
 	
-;TODO: implement simpler patrol path
-;TODO: implement interrupts to detect object in front of us
-
-
+	
+;function to perform sonar reading using front four sensors
+;assumes that the robot is facing the correct direction
+;it will store the value in an array 
+ReadStoreValsB90:
+	LOAD  mask1        ;load the mask for sensor 1
+	OR    mask2		  ;or the masks tgether to enable multiple sonars
+	OR 	  mask3		  ;or the masks tgether to enable multiple sonars
+	OR    mask4	 	  ;or the masks tgether to enable multiple sonars
+	OUT   SONAREN 	  ;enable the sonar sensors
+	
+	CALL  Wait1Half
+;	LOAD  Zero 		  ;Load zero into AC
+;	STORE Temp 		  ;make sure temp is zero to start off
+	
+	IN    Dist1        ;get the reading from sonar 1
+	ADDI  -304			;subtract one foot from this measurement to use in checking for object later   
+	STORE BStore4       ;store the first sensor reading in AStore0
+	
+	IN    Dist2        ;get the reading from sonar 2
+	ADDI  -304			;subtract one foot from this measurement to use in checking for object later
+	STORE BStore5     ;store the first sensor reading in BStore1
+	
+	IN    Dist3        ;get the reading from sonar 3
+	ADDI  -304			;subtract one foot from this measurement to use in checking for object later
+	STORE BStore6       ;store the first sensor reading in BStore2
+	
+	IN    Dist4        ;get the reading from sonar 4
+	ADDI  -304			;subtract one foot from this measurement to use in checking for object later
+	STORE BStore7       ;store the first sensor reading in BStore3
+	
+	LOAD  Zero        ;load Zero into the AC
+	OUT   SONAREN     ;turn off sonar
+	
+	RETURN            ;return to caller  
+	
+	
+	
+	
+;function to perform sonar reading using front four sensors
+;assumes that the robot is facing the correct direction
+;it will store the value in an array 
+ReadStoreValsB135:
+	LOAD  mask1        ;load the mask for sensor 1
+	OR    mask2		  ;or the masks tgether to enable multiple sonars
+	OR 	  mask3		  ;or the masks tgether to enable multiple sonars
+	OR    mask4	 	  ;or the masks tgether to enable multiple sonars
+	OUT   SONAREN 	  ;enable the sonar sensors
+	
+	CALL  Wait1Half
+;	LOAD  Zero 		  ;Load zero into AC
+;	STORE Temp 		  ;make sure temp is zero to start off
+	
+	IN    Dist1        ;get the reading from sonar 1
+	ADDI  -304			;subtract one foot from this measurement to use in checking for object later   
+	STORE BStore8       ;store the first sensor reading in AStore0
+	
+	IN    Dist2        ;get the reading from sonar 2
+	ADDI  -304			;subtract one foot from this measurement to use in checking for object later
+	STORE BStore9     ;store the first sensor reading in BStore1
+	
+	IN    Dist3        ;get the reading from sonar 3
+	ADDI  -304			;subtract one foot from this measurement to use in checking for object later
+	STORE BStore10       ;store the first sensor reading in BStore2
+	
+	IN    Dist4        ;get the reading from sonar 4
+	ADDI  -304			;subtract one foot from this measurement to use in checking for object later
+	STORE BStore11      ;store the first sensor reading in BStore3
+	
+	LOAD  Zero        ;load Zero into the AC
+	OUT   SONAREN     ;turn off sonar
+	
+	RETURN            ;return to caller  
+	
 
 ;function to fire the front four sonars and detect if something has changed
 ;assumes the robot is facing the correct direction
 ;it will beep if something is detected whithin a threshold of 1 foot
-ReadCompareValsA:
+ReadCompareValsA45:
 	LOAD  mask1        ;load the mask for sensor 1
 	OR    mask2		  ;or the masks tgether to enable multiple sonars
 	OR 	  mask3		  ;or the masks tgether to enable multiple sonars
@@ -262,33 +332,142 @@ ReadCompareValsA:
 	
 	CALL  Wait1Half   ;tell robot to wait in order to give sonar time to setup
 	
+	LOADI 1
+	OUT   LCD
 	IN    Dist1       ;get the value from sonar sensor 1
 	SUB   AStore0     ;subtract the previous value from new value 
-	JNEG  FOUNDA       ;if the distance is too close the intruder is there
+	JNEG  FOUNDA1       ;if the distance is too close the intruder is there
 	
+	LOADI 2
+	OUT   LCD
 	IN    Dist2       ;get the value from sonar sensor 2
 	SUB   AStore1     ;subtract the previous value from new value 
-	JNEG  FOUNDA       ;if the distance is too close the intruder is there
+	JNEG  FOUNDA1       ;if the distance is too close the intruder is there
 	
+	LOADI 3
+	OUT   LCD
 	IN    Dist3       ;get the value from sonar sensor 3
 	SUB   AStore0     ;subtract the previous value from new value 
-	JNEG  FOUNDA       ;if the distance is too close the intruder is there
+	JNEG  FOUNDA1       ;if the distance is too close the intruder is there
 	
+	LOADI 4
+	OUT   LCD
 	IN    Dist4       ;get the value from sonar sensor 4
 	SUB   AStore0     ;subtract the previous value from new value 
-	JNEG  FOUNDA       ;if the distance is too close the intruder is there
+	JNEG  FOUNDA1       ;if the distance is too close the intruder is there
+	LOAD  Zero        ;load Zero into the AC
+	OUT   SONAREN     ;turn off sonar
 	RETURN            ;if not found return to caller
 	
-FOUNDA:
+FOUNDA1:
     CALL  FoundIntruder ;if there is something there then beep!
+    LOAD  Zero        ;load Zero into the AC
+	OUT   SONAREN     ;turn off sonar
     RETURN             ;return to caller
+    
+    
+;function to fire the front four sonars and detect if something has changed
+;assumes the robot is facing the correct direction
+;it will beep if something is detected whithin a threshold of 1 foot
+ReadCompareValsA90:
+	LOAD  mask1        ;load the mask for sensor 1
+	OR    mask2		  ;or the masks tgether to enable multiple sonars
+	OR 	  mask3		  ;or the masks tgether to enable multiple sonars
+	OR    mask4	 	  ;or the masks tgether to enable multiple sonars
+	OUT   SONAREN 	  ;enable the sonar sensors
+	
+	CALL  Wait1Half   ;tell robot to wait in order to give sonar time to setup
+	
+	LOADI 1
+	OUT   LCD
+	IN    Dist1       ;get the value from sonar sensor 1
+	SUB   AStore4     ;subtract the previous value from new value 
+	JNEG  FOUNDA2       ;if the distance is too close the intruder is there
+	
+	LOADI 2
+	OUT   LCD
+	IN    Dist2       ;get the value from sonar sensor 2
+	SUB   AStore5     ;subtract the previous value from new value 
+	JNEG  FOUNDA2       ;if the distance is too close the intruder is there
+	
+	LOADI 3
+	OUT   LCD
+	IN    Dist3       ;get the value from sonar sensor 3
+	SUB   AStore6     ;subtract the previous value from new value 
+	JNEG  FOUNDA2       ;if the distance is too close the intruder is there
+	
+	LOADI 4
+	OUT   LCD
+	IN    Dist4       ;get the value from sonar sensor 4
+	SUB   AStore7     ;subtract the previous value from new value 
+	JNEG  FOUNDA2       ;if the distance is too close the intruder is there
+	LOAD  Zero        ;load Zero into the AC
+	OUT   SONAREN     ;turn off sonar
+	RETURN            ;if not found return to caller
+	
+FOUNDA2:
+    CALL  FoundIntruder ;if there is something there then beep!
+    LOAD  Zero        ;load Zero into the AC
+	OUT   SONAREN     ;turn off sonar
+    RETURN             ;return to caller
+    
+
+    
     
     
     
 ;function to fire the front four sonars and detect if something has changed
 ;assumes the robot is facing the correct direction
 ;it will beep if something is detected whithin a threshold of 1 foot
-ReadCompareValsB:
+ReadCompareValsA135:
+	LOAD  mask1        ;load the mask for sensor 1
+	OR    mask2		  ;or the masks tgether to enable multiple sonars
+	OR 	  mask3		  ;or the masks tgether to enable multiple sonars
+	OR    mask4	 	  ;or the masks tgether to enable multiple sonars
+	OUT   SONAREN 	  ;enable the sonar sensors
+	
+	CALL  Wait1Half   ;tell robot to wait in order to give sonar time to setup
+	
+	LOADI 1
+	OUT   LCD
+	IN    Dist1       ;get the value from sonar sensor 1
+	SUB   AStore8     ;subtract the previous value from new value 
+	JNEG  FOUNDA3       ;if the distance is too close the intruder is there
+	
+	LOADI 2
+	OUT   LCD
+	IN    Dist2       ;get the value from sonar sensor 2
+	SUB   AStore9     ;subtract the previous value from new value 
+	JNEG  FOUNDA3       ;if the distance is too close the intruder is there
+	
+	LOADI 3
+	OUT   LCD
+	IN    Dist3       ;get the value from sonar sensor 3
+	SUB   AStore10     ;subtract the previous value from new value 
+	JNEG  FOUNDA3       ;if the distance is too close the intruder is there
+	
+	LOADI 4
+	OUT   LCD
+	IN    Dist4       ;get the value from sonar sensor 4
+	SUB   AStore11    ;subtract the previous value from new value 
+	JNEG  FOUNDA3     ;if the distance is too close the intruder is there
+	LOAD  Zero        ;load Zero into the AC
+	OUT   SONAREN     ;turn off sonar
+	RETURN            ;if not found return to caller
+	
+FOUNDA3:
+    CALL  FoundIntruder ;if there is something there then beep!
+    LOAD  Zero        ;load Zero into the AC
+	OUT   SONAREN     ;turn off sonar
+    RETURN             ;return to caller
+    
+    
+    
+    
+;function to fire the front four sonars and detect if something has changed
+;assumes the robot is facing the correct direction
+;it will beep if something is detected whithin a threshold of 1 foot
+ReadCompareValsB45:
 	LOAD  mask1        ;load the mask for sensor 1
 	OR    mask2		  ;or the masks tgether to enable multiple sonars
 	OR 	  mask3		  ;or the masks tgether to enable multiple sonars
@@ -299,26 +478,110 @@ ReadCompareValsB:
 	
 	IN    Dist1       ;get the value from sonar sensor 1
 	SUB   BStore0     ;subtract the previous value from new value 
-	JNEG  FOUNDB       ;if the distance is too close the intruder is there
+	JNEG  FOUNDB1       ;if the distance is too close the intruder is there
 	
 	IN    Dist2       ;get the value from sonar sensor 2
 	SUB   BStore1     ;subtract the previous value from new value 
-	JNEG  FOUNDB       ;if the distance is too close the intruder is there
+	JNEG  FOUNDB1       ;if the distance is too close the intruder is there
 	
 	IN    Dist3       ;get the value from sonar sensor 3
 	SUB   BStore0     ;subtract the previous value from new value 
-	JNEG  FOUNDB      ;if the distance is too close the intruder is there
+	JNEG  FOUNDB1      ;if the distance is too close the intruder is there
 	
 	IN    Dist4       ;get the value from sonar sensor 4
 	SUB   BStore0     ;subtract the previous value from new value 
-	JNEG  FOUNDB      ;if the distance is too close the intruder is there
+	JNEG  FOUNDB1      ;if the distance is too close the intruder is there
+	LOAD  Zero        ;load Zero into the AC
+	OUT   SONAREN     ;turn off sonar
 	RETURN            ;if not found return to caller
 	
-FOUNDB:
+	
+FOUNDB1:
     CALL  FoundIntruder ;if there is something there then beep!
+    LOAD  Zero        ;load Zero into the AC
+	OUT   SONAREN     ;turn off sonar
     RETURN             ;return to caller
+    
+    
+    
+;function to fire the front four sonars and detect if something has changed
+;assumes the robot is facing the correct direction
+;it will beep if something is detected whithin a threshold of 1 foot
+ReadCompareValsB90:
+	LOAD  mask1        ;load the mask for sensor 1
+	OR    mask2		  ;or the masks tgether to enable multiple sonars
+	OR 	  mask3		  ;or the masks tgether to enable multiple sonars
+	OR    mask4	 	  ;or the masks tgether to enable multiple sonars
+	OUT   SONAREN 	  ;enable the sonar sensors
+	
+	CALL  Wait1Half   ;tell robot to wait in order to give sonar time to setup
+	
+	IN    Dist1       ;get the value from sonar sensor 1
+	SUB   BStore4     ;subtract the previous value from new value 
+	JNEG  FOUNDB2       ;if the distance is too close the intruder is there
+	
+	IN    Dist2       ;get the value from sonar sensor 2
+	SUB   BStore5     ;subtract the previous value from new value 
+	JNEG  FOUNDB2       ;if the distance is too close the intruder is there
+	
+	IN    Dist3       ;get the value from sonar sensor 3
+	SUB   BStore6     ;subtract the previous value from new value 
+	JNEG  FOUNDB2      ;if the distance is too close the intruder is there
+	
+	IN    Dist4       ;get the value from sonar sensor 4
+	SUB   BStore7     ;subtract the previous value from new value 
+	JNEG  FOUNDB2      ;if the distance is too close the intruder is there
+	LOAD  Zero        ;load Zero into the AC
+	OUT   SONAREN     ;turn off sonar
+	RETURN            ;if not found return to caller
 	
 	
+FOUNDB2:
+    CALL  FoundIntruder ;if there is something there then beep!
+    LOAD  Zero        ;load Zero into the AC
+	OUT   SONAREN     ;turn off sonar
+    RETURN             ;return to caller
+
+    
+
+    
+;function to fire the front four sonars and detect if something has changed
+;assumes the robot is facing the correct direction
+;it will beep if something is detected whithin a threshold of 1 foot
+ReadCompareVals135:
+	LOAD  mask1        ;load the mask for sensor 1
+	OR    mask2		  ;or the masks tgether to enable multiple sonars
+	OR 	  mask3		  ;or the masks tgether to enable multiple sonars
+	OR    mask4	 	  ;or the masks tgether to enable multiple sonars
+	OUT   SONAREN 	  ;enable the sonar sensors
+	
+	CALL  Wait1Half   ;tell robot to wait in order to give sonar time to setup
+	
+	IN    Dist1       ;get the value from sonar sensor 1
+	SUB   BStore8     ;subtract the previous value from new value 
+	JNEG  FOUNDB3       ;if the distance is too close the intruder is there
+	
+	IN    Dist2       ;get the value from sonar sensor 2
+	SUB   BStore9     ;subtract the previous value from new value 
+	JNEG  FOUNDB3       ;if the distance is too close the intruder is there
+	
+	IN    Dist3       ;get the value from sonar sensor 3
+	SUB   BStore10     ;subtract the previous value from new value 
+	JNEG  FOUNDB3      ;if the distance is too close the intruder is there
+	
+	IN    Dist4       ;get the value from sonar sensor 4
+	SUB   BStore11     ;subtract the previous value from new value 
+	JNEG  FOUNDB3     ;if the distance is too close the intruder is there
+	LOAD  Zero        ;load Zero into the AC
+	OUT   SONAREN     ;turn off sonar
+	RETURN            ;if not found return to caller
+	
+	
+FOUNDB3:
+    CALL  FoundIntruder ;if there is something there then beep!
+    LOAD  Zero        ;load Zero into the AC
+	OUT   SONAREN     ;turn off sonar
+    RETURN             ;return to caller
 	
 	
 ;function to sound a beep when an intruder is located in the area
@@ -329,6 +592,157 @@ FoundIntruder:
 	LOADI &H00	      ;Load in new value to make beep stop
 	OUT   BEEP        ;tell beep to stop 
 	RETURN            ;return to caller
+	
+	
+;Sonar Interrupt Routine to monitor for objects in front of the robot
+;it will stop the robot, beep, then check if the obstacle is still there, 
+;if it is, then it will wait, otherwise, it will return to the main code
+;with the same value for velocity it had before 
+
+
+SIR: 
+   LOAD  DVel         ;load the current velocity of the robot
+   STORE SonarVel     ;store the old velocity to restore later
+   LOAD  Zero         ;load zero in the AC
+   STORE DVel         ;stop the robot
+   CALL  FoundIntruder ;beep because there must be an intruder here
+IntruderDist:
+   IN    Dist2        ;grab the distance from sensor 2
+   ADDI  -152         ;subtract 6 inches from the distance
+   JNEG  IntruderDist ;if intruder still within 6 inches then keep waiting
+   JZERO IntruderDist ;do the same thing if exactly 6 inches away
+   IN    Dist3        ;grab the distance from sensor 3
+   ADDI  -152         ;subtract 6 inches from the distance
+   JNEG  IntruderDist ;if intruder still within 6 inches then keep waiting
+   JZERO IntruderDist ;if the intruder still present then keep waiting 
+   
+   LOAD  SonarVel     ;load the original velocity
+   STORE DVel         ;tell the robot to go that speed
+   
+   RETI			      ;return to caller
+	
+
+;************************************************************************************
+; Allows the robot to turn in place at a given speed.
+; Turning at a slow speed results in less slippage and odometry error.
+; 
+; To use, store values for these before calling:
+; 	DManTheta - the desired theta value to be facing when the call is returned
+; 	DManTurnVal - the velocity to turn at; recommend 100 (ie FSlow)
+;*************************************************************************************
+TurnVariableSpeed:
+	LOADI	1			; enable manual turning and disable movement API
+	STORE	ManTurnEn
+	CALL    Wait1Fifth  ; wait and let robot stabilize
+	
+	CALL	DetermineTurnDir  ; if this sets IsTurnLeft = 1, turn left; else turn right
+	LOAD	IsTurnLeft
+	JZERO	TurnRightVarSpeedHelper
+	; otherwise, turn left
+	LOAD	DManTurnVel	; set the velocity for the turn speed
+	OUT		RVELCMD		; just turn right motor forward
+	CALL	Neg			; make left wheel turn opposite velocity
+	OUT		LVELCMD
+LoopTurnLeftVariableSpeed:
+	LOAD	DManTurnVel	; set the velocity for the turn speed
+	OUT		RVELCMD		; just turn right motor forward
+	CALL	Neg			; make left wheel turn opposite velocity
+	OUT		LVELCMD
+	CALL	GetManThetaErr	; get the heading error
+	CALL	Abs
+	OUT		LCD
+	ADDI	-2			; this is desired accuracy
+	JPOS	LoopTurnLeftVariableSpeed ; keep turning until error is <= 2 degrees
+	JUMP	DoneTurnVariableSpeed
+TurnRightVarSpeedHelper:
+	LOAD	DManTurnVel	; set the velocity for the turn speed
+	OUT		LVELCMD		; just turn left motor forward
+	CALL	Neg			; make right wheel turn opposite velocity
+	OUT		RVELCMD
+LoopTurnRightVariableSpeed:
+	LOAD	DManTurnVel	; set the velocity for the turn speed
+	OUT		LVELCMD		; just turn left motor
+	CALL	Neg			; make right wheel turn opposite velocity
+	OUT		RVELCMD
+	CALL	GetManThetaErr	; get the heading error
+	CALL	Abs
+	OUT		LCD
+	ADDI	-2			; this is desired accuracy
+	JPOS	LoopTurnRightVariableSpeed ; keep turning until error is <= 2 degrees
+DoneTurnVariableSpeed:
+	IN		THETA
+	STORE	DTheta	; want the movement API not to try and turn it once control resumes
+	LOADI	0		; after the turn, stop the motors
+	OUT		LVELCMD
+	OUT		RVELCMD
+	LOADI	0		; disable manual turning and re-enable movement API
+	STORE	ManTurnEn
+	CALL	Wait1Fifth
+	RETURN
+DManTheta:	 DW	0		; desired theta; the robot will be facing here +-2 degrees when finished
+DManTurnVel: DW 0		; desired turn speed; 100 is slowest, 500 is fastest; faster speed = more slipping
+ManTurnEn:	 DW &H0000	; set to 1 to enable manual turning and disable movement API
+
+;***************************************************************
+; Determines the direction for the manual turn.
+; If abs(THETA - DManTheta)>=180, then turn right,
+; else turn left.
+;
+; This function doesn't actually turn; it sets an indicator bit
+; IsTurnLeft = 1 means left turn; = 0 means right turn
+;***************************************************************
+DetermineTurnDir:
+	IN		THETA
+	SUB		DManTheta
+	CALL	Abs
+	SUB		Pos180
+	JNEG	SetTurnLeft		; if abs(THETA - DManTheta) >= 180, turn right
+	LOADI	0
+	STORE	IsTurnLeft
+	JUMP	DoneDetermineTurnDir
+SetTurnLeft:
+	LOADI	1
+	STORE	IsTurnLeft
+DoneDetermineTurnDir:	
+	RETURN
+IsTurnLeft:	DW	0
+Pos180:		DW 180
+
+
+; Returns the current angular error wrapped to +/-180,
+; when using manual control (not using movement API)
+GetManThetaErr:
+	; convenient way to get angle error in +/-180 range is
+	; ((error + 180) % 360 ) - 180
+	IN     THETA
+	SUB    DManTheta    ; actual - desired angle
+	CALL   Neg         ; desired - actual angle
+	ADDI   180
+	CALL   Mod360
+	ADDI   -180
+	RETURN
+	
+	
+	
+	
+	; Subroutine to wait (block) for 1/5 second
+Wait1Fifth:
+	OUT    TIMER
+WFifthLoop:
+	IN     TIMER
+	OUT    XLEDS       ; User-feedback that a pause is occurring.
+	ADDI   -2          ; 0.2 second at 10Hz.
+	JNEG   WHalfLoop
+	RETURN
+	
+	
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;CODE ADDED BY TEAM BAFFLED TO IMPLEMENT THE WATCHDOG PROJECT ALGORITHM ABOVE;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	
+	
+	
+	
 	
 	
 	
@@ -936,14 +1350,14 @@ Wloop:
 	JNEG   Wloop
 	RETURN
 	
-; Subroutine to wait (block) for 0.1 second
+; Subroutine to wait (block) for 1/2 second
 Wait1Half:
 	OUT    TIMER
-WTenthloop:
+WHalfLoop:
 	IN     TIMER
 	OUT    XLEDS       ; User-feedback that a pause is occurring.
-	ADDI   -5         ; 0.1 second at 10Hz.
-	JNEG   WTenthloop
+	ADDI   -5          ; 1/2 second at 10Hz.
+	JNEG   WHalfLoop
 	RETURN
 
 ; This subroutine will get the battery voltage,
@@ -1057,6 +1471,8 @@ LowNibl:  DW &HF       ; 0000 0000 0000 1111
 
 ; some useful movement values
 OneMeter: DW 961       ; ~1m in 1.04mm units
+TwoMeter: DW 1922	   ; ~2m in 1.04mm units
+ThreeMeter: DW 2883	   ; ~3m in 1.04mm units
 HalfMeter: DW 481      ; ~0.5m in 1.04mm units
 FiveFeet: DW 1465	   ; ~4ft in 1.04mm units
 FourFeet: DW 1172	   ; ~4ft in 1.04mm units
@@ -1132,10 +1548,19 @@ IR_LO:    EQU &HD1  ; read the low word of the IR receiver (OUT will clear both 
 
 ASAdd:    EQU Astore0 ;address of the first element in Asweep values(basically a poointer)
 
-Astore0:  DW  0 	;sensor reading from sensor 1
-Astore1:  DW  0 	;sensor reading from sensor 2
-Astore2:  DW  0	    ;sensor reading from sensor 3
-Astore3:  DW  0	    ;sensro reading from sensor 4
+Astore0:  DW  0 	;sensor reading from sensor 1 for 45 deg
+Astore1:  DW  0 	;sensor reading from sensor 2 for 45 deg
+Astore2:  DW  0	    ;sensor reading from sensor 3 for 45 deg
+Astore3:  DW  0	    ;sensro reading from sensor 4 for 45 deg 
+Astore4:  DW  0     ;sensor reading from sensor 1 for 90 deg
+Astore5:  DW  0     ;sensor reading from sensor 2 for 90 deg
+Astore6:  DW  0     ;sensor reading from sensor 3 for 90 deg
+Astore7:  DW  0     ;sensor reading from sensor 4 for 90 deg
+Astore8:  DW  0     ;sensor reading from sensor 1 for 135 deg
+Astore9:  DW  0     ;sensor reading from sensor 2 for 135 deg
+Astore10:  DW  0    ;sensor reading from sensor 3 for 135 deg
+Astore11:  DW  0    ;sensor reading from sensor 4 for 135 deg
+
 
 
 
@@ -1143,7 +1568,7 @@ Astore3:  DW  0	    ;sensro reading from sensor 4
 ;this is essentially an array that can be accessed through its base address which is BSAdd
 ;this will help to shorten code above
 
-;SweepVar: DW 12     ;variable to use when trying to rotate in sweep
+
 
 BSAdd:    EQU Bstore0 ;address of the first element in Asweep values(basically a poointer)
 
@@ -1151,5 +1576,18 @@ Bstore0:  DW  0 	;sensor reading from sensor 1
 Bstore1:  DW  0 	;sensor reading from sensor 2
 Bstore2:  DW  0	    ;sensor reading from sensor 3
 Bstore3:  DW  0	    ;sensro reading from sensor 4
+Bstore4:  DW  0     ;sensor reading from sensor 1 for 90 deg
+Bstore5:  DW  0     ;sensor reading from sensor 2 for 90 deg
+Bstore6:  DW  0     ;sensor reading from sensor 3 for 90 deg
+Bstore7:  DW  0     ;sensor reading from sensor 4 for 90 deg
+Bstore8:  DW  0     ;sensor reading from sensor 1 for 135 deg
+Bstore9:  DW  0     ;sensor reading from sensor 2 for 135 deg
+Bstore10:  DW  0    ;sensor reading from sensor 3 for 135 deg
+Bstore11:  DW  0    ;sensor reading from sensor 4 for 135 deg
+
+
+SonarVel:  DW  0    ;temp variable to store the velocity during
+					;sonar software interupt
+
 
 
