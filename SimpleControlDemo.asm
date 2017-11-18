@@ -90,12 +90,11 @@ Main:
 LOAD  mask2         ;load in mask to enable the sonar sensor 2                       ;;
 OR    mask3         ;or the two masks so that I can enable both sensors              ;;
 OUT   SONAREN       ;enable the two sensors for use in software interrupts for sonar ;;
+LOADI 152           ;load 6 inches in the AC										 ;;
+STORE SONALARM    ;set this as the distance that causes interrupt from the sensors ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-
-	
-	
 ;function to perform sonar reading using front four sensors
 ;assumes that the robot is facing the correct direction
 ;it will store the value in an array 
@@ -107,8 +106,6 @@ ReadStoreValsA45:
 	OUT   SONAREN 	  ;enable the sonar sensors
 	
 	CALL  Wait1Half
-;	LOAD  Zero 		  ;Load zero into AC
-;	STORE Temp 		  ;make sure temp is zero to start off
 	
 	IN    Dist1        ;get the reading from sonar 1
 	ADDI  -304			;subtract one foot from this measurement to use in checking for object later 
@@ -143,9 +140,7 @@ ReadStoreValsA90:
 	OUT   SONAREN 	  ;enable the sonar sensors
 	
 	CALL  Wait1Half
-;	LOAD  Zero 		  ;Load zero into AC
-;	STORE Temp 		  ;make sure temp is zero to start off
-	
+
 	IN    Dist1        ;get the reading from sonar 1
 	ADDI  -304			;subtract one foot from this measurement to use in checking for object later 
 	STORE AStore4       ;store the first sensor reading in AStore0
@@ -179,8 +174,7 @@ ReadStoreValsA135:
 	OUT   SONAREN 	  ;enable the sonar sensors
 	
 	CALL  Wait1Half
-;	LOAD  Zero 		  ;Load zero into AC
-;	STORE Temp 		  ;make sure temp is zero to start off
+
 	
 	IN    Dist1        ;get the reading from sonar 1
 	ADDI  -304			;subtract one foot from this measurement to use in checking for object later 
@@ -218,8 +212,6 @@ ReadStoreValsB45:
 	OUT   SONAREN 	  ;enable the sonar sensors
 	
 	CALL  Wait1Half
-;	LOAD  Zero 		  ;Load zero into AC
-;	STORE Temp 		  ;make sure temp is zero to start off
 	
 	IN    Dist1        ;get the reading from sonar 1
 	ADDI  -304			;subtract one foot from this measurement to use in checking for object later   
@@ -257,8 +249,6 @@ ReadStoreValsB90:
 	OUT   SONAREN 	  ;enable the sonar sensors
 	
 	CALL  Wait1Half
-;	LOAD  Zero 		  ;Load zero into AC
-;	STORE Temp 		  ;make sure temp is zero to start off
 	
 	IN    Dist1        ;get the reading from sonar 1
 	ADDI  -304			;subtract one foot from this measurement to use in checking for object later   
@@ -295,8 +285,6 @@ ReadStoreValsB135:
 	OUT   SONAREN 	  ;enable the sonar sensors
 	
 	CALL  Wait1Half
-;	LOAD  Zero 		  ;Load zero into AC
-;	STORE Temp 		  ;make sure temp is zero to start off
 	
 	IN    Dist1        ;get the reading from sonar 1
 	ADDI  -304			;subtract one foot from this measurement to use in checking for object later   
@@ -622,7 +610,7 @@ IntruderDist:
    RETI			      ;return to caller
 	
 
-;************************************************************************************
+;*************************************************************************************
 ; Allows the robot to turn in place at a given speed.
 ; Turning at a slow speed results in less slippage and odometry error.
 ; 
@@ -739,14 +727,6 @@ WFifthLoop:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;CODE ADDED BY TEAM BAFFLED TO IMPLEMENT THE WATCHDOG PROJECT ALGORITHM ABOVE;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-	
-	
-	
-	
-	
-	
-	
-	
 	
 	
 
