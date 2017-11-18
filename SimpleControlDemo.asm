@@ -90,8 +90,9 @@ Main:
 LOAD  mask2         ;load in mask to enable the sonar sensor 2                       ;;
 OR    mask3         ;or the two masks so that I can enable both sensors              ;;
 OUT   SONAREN       ;enable the two sensors for use in software interrupts for sonar ;;
+OUT   SONARINT      ;only allow these sonar sensors to cause an interrupt			 ;;
 LOADI 152           ;load 6 inches in the AC										 ;;
-STORE SONALARM    ;set this as the distance that causes interrupt from the sensors ;;
+OUT SONALARM      ;set this as the distance that causes interrupt from the sensors   ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
@@ -123,7 +124,8 @@ ReadStoreValsA45:
 	ADDI  -304			;subtract one foot from this measurement to use in checking for object later 
 	STORE AStore3       ;store the first sensor reading in AStore3
 	
-	LOAD  Zero        ;load Zero into the AC
+	LOAD  mask2       ;load mask2 into the AC
+	OR    mask3       ;or it with mask3 to enable only front two sensors
 	OUT   SONAREN     ;turn off sonar
 	
 	RETURN            ;return to caller
@@ -157,7 +159,8 @@ ReadStoreValsA90:
 	ADDI  -304			;subtract one foot from this measurement to use in checking for object later 
 	STORE AStore7       ;store the first sensor reading in AStore3
 	
-	LOAD  Zero        ;load Zero into the AC
+	LOAD  mask2       ;load mask2 into the AC
+	OR    mask3       ;or it with mask3 to enable only front two sensors
 	OUT   SONAREN     ;turn off sonar
 	
 	RETURN            ;return to caller 
@@ -192,7 +195,8 @@ ReadStoreValsA135:
 	ADDI  -304			;subtract one foot from this measurement to use in checking for object later 
 	STORE AStore11      ;store the first sensor reading in AStore3
 	
-	LOAD  Zero        ;load Zero into the AC
+	LOAD  mask2       ;load mask2 into the AC
+	OR    mask3       ;or it with mask3 to enable only front two sensors
 	OUT   SONAREN     ;turn off sonar
 	
 	RETURN            ;return to caller
@@ -229,7 +233,8 @@ ReadStoreValsB45:
 	ADDI  -304			;subtract one foot from this measurement to use in checking for object later
 	STORE BStore3       ;store the first sensor reading in BStore3
 	
-	LOAD  Zero        ;load Zero into the AC
+	LOAD  mask2       ;load mask2 into the AC
+	OR    mask3       ;or it with mask3 to enable only front two sensors
 	OUT   SONAREN     ;turn off sonar
 	
 	RETURN            ;return to caller  
@@ -266,7 +271,8 @@ ReadStoreValsB90:
 	ADDI  -304			;subtract one foot from this measurement to use in checking for object later
 	STORE BStore7       ;store the first sensor reading in BStore3
 	
-	LOAD  Zero        ;load Zero into the AC
+	LOAD  mask2       ;load mask2 into the AC
+	OR    mask3       ;or it with mask3 to enable only front two sensors
 	OUT   SONAREN     ;turn off sonar
 	
 	RETURN            ;return to caller  
@@ -302,7 +308,8 @@ ReadStoreValsB135:
 	ADDI  -304			;subtract one foot from this measurement to use in checking for object later
 	STORE BStore11      ;store the first sensor reading in BStore3
 	
-	LOAD  Zero        ;load Zero into the AC
+	LOAD  mask2       ;load mask2 into the AC
+	OR    mask3       ;or it with mask3 to enable only front two sensors
 	OUT   SONAREN     ;turn off sonar
 	
 	RETURN            ;return to caller  
@@ -343,13 +350,15 @@ ReadCompareValsA45:
 	IN    Dist4       ;get the value from sonar sensor 4
 	SUB   AStore0     ;subtract the previous value from new value 
 	JNEG  FOUNDA1       ;if the distance is too close the intruder is there
-	LOAD  Zero        ;load Zero into the AC
+	LOAD  mask2       ;load mask2 into the AC
+	OR    mask3       ;or it with mask3 to enable only front two sensors
 	OUT   SONAREN     ;turn off sonar
 	RETURN            ;if not found return to caller
 	
 FOUNDA1:
     CALL  FoundIntruder ;if there is something there then beep!
-    LOAD  Zero        ;load Zero into the AC
+    LOAD  mask2       ;load mask2 into the AC
+	OR    mask3       ;or it with mask3 to enable only front two sensors
 	OUT   SONAREN     ;turn off sonar
     RETURN             ;return to caller
     
@@ -389,13 +398,15 @@ ReadCompareValsA90:
 	IN    Dist4       ;get the value from sonar sensor 4
 	SUB   AStore7     ;subtract the previous value from new value 
 	JNEG  FOUNDA2       ;if the distance is too close the intruder is there
-	LOAD  Zero        ;load Zero into the AC
+	LOAD  mask2       ;load mask2 into the AC
+	OR    mask3       ;or it with mask3 to enable only front two sensors
 	OUT   SONAREN     ;turn off sonar
 	RETURN            ;if not found return to caller
 	
 FOUNDA2:
     CALL  FoundIntruder ;if there is something there then beep!
-    LOAD  Zero        ;load Zero into the AC
+	LOAD  mask2       ;load mask2 into the AC
+	OR    mask3       ;or it with mask3 to enable only front two sensors
 	OUT   SONAREN     ;turn off sonar
     RETURN             ;return to caller
     
@@ -439,13 +450,15 @@ ReadCompareValsA135:
 	IN    Dist4       ;get the value from sonar sensor 4
 	SUB   AStore11    ;subtract the previous value from new value 
 	JNEG  FOUNDA3     ;if the distance is too close the intruder is there
-	LOAD  Zero        ;load Zero into the AC
+	LOAD  mask2       ;load mask2 into the AC
+	OR    mask3       ;or it with mask3 to enable only front two sensors
 	OUT   SONAREN     ;turn off sonar
 	RETURN            ;if not found return to caller
 	
 FOUNDA3:
     CALL  FoundIntruder ;if there is something there then beep!
-    LOAD  Zero        ;load Zero into the AC
+	LOAD  mask2       ;load mask2 into the AC
+	OR    mask3       ;or it with mask3 to enable only front two sensors
 	OUT   SONAREN     ;turn off sonar
     RETURN             ;return to caller
     
@@ -479,14 +492,16 @@ ReadCompareValsB45:
 	IN    Dist4       ;get the value from sonar sensor 4
 	SUB   BStore0     ;subtract the previous value from new value 
 	JNEG  FOUNDB1      ;if the distance is too close the intruder is there
-	LOAD  Zero        ;load Zero into the AC
+	LOAD  mask2       ;load mask2 into the AC
+	OR    mask3       ;or it with mask3 to enable only front two sensors
 	OUT   SONAREN     ;turn off sonar
 	RETURN            ;if not found return to caller
 	
 	
 FOUNDB1:
     CALL  FoundIntruder ;if there is something there then beep!
-    LOAD  Zero        ;load Zero into the AC
+	LOAD  mask2       ;load mask2 into the AC
+	OR    mask3       ;or it with mask3 to enable only front two sensors
 	OUT   SONAREN     ;turn off sonar
     RETURN             ;return to caller
     
@@ -519,14 +534,16 @@ ReadCompareValsB90:
 	IN    Dist4       ;get the value from sonar sensor 4
 	SUB   BStore7     ;subtract the previous value from new value 
 	JNEG  FOUNDB2      ;if the distance is too close the intruder is there
-	LOAD  Zero        ;load Zero into the AC
+	LOAD  mask2       ;load mask2 into the AC
+	OR    mask3       ;or it with mask3 to enable only front two sensors
 	OUT   SONAREN     ;turn off sonar
 	RETURN            ;if not found return to caller
 	
 	
 FOUNDB2:
     CALL  FoundIntruder ;if there is something there then beep!
-    LOAD  Zero        ;load Zero into the AC
+	LOAD  mask2       ;load mask2 into the AC
+	OR    mask3       ;or it with mask3 to enable only front two sensors
 	OUT   SONAREN     ;turn off sonar
     RETURN             ;return to caller
 
@@ -560,14 +577,16 @@ ReadCompareVals135:
 	IN    Dist4       ;get the value from sonar sensor 4
 	SUB   BStore11     ;subtract the previous value from new value 
 	JNEG  FOUNDB3     ;if the distance is too close the intruder is there
-	LOAD  Zero        ;load Zero into the AC
+	LOAD  mask2       ;load mask2 into the AC
+	OR    mask3       ;or it with mask3 to enable only front two sensors
 	OUT   SONAREN     ;turn off sonar
 	RETURN            ;if not found return to caller
 	
 	
 FOUNDB3:
     CALL  FoundIntruder ;if there is something there then beep!
-    LOAD  Zero        ;load Zero into the AC
+	LOAD  mask2       ;load mask2 into the AC
+	OR    mask3       ;or it with mask3 to enable only front two sensors
 	OUT   SONAREN     ;turn off sonar
     RETURN             ;return to caller
 	
@@ -607,7 +626,7 @@ IntruderDist:
    LOAD  SonarVel     ;load the original velocity
    STORE DVel         ;tell the robot to go that speed
    
-   RETI			      ;return to caller
+   RETI			      ;return to where interrupted
 	
 
 ;*************************************************************************************
