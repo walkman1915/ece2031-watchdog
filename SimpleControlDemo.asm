@@ -142,7 +142,9 @@ PointA:
 	;CALL   TurnVariableSpeed ; Calls the turn API constructed for variable speed turns
 	;CALL   Wait1      ; Calls Wait1 to wait 1 second to let the robot turn
 ;Code which instructs the robot to move from 'Point B' on the patrol path to 'Point C'
-
+	LOAD  mask0         ;load in mask to enable the sonar sensor 2                       ;;
+	OR    mask5         ;or the two masks so that I can enable both sensors              ;;
+	OUT   SONAREN       ;enable the two sensors for use in software interrupts for sonar ;;
 	Load	Zero
 	OUT     LVELCMD     ; Stop motors
 	OUT     RVELCMD
@@ -171,21 +173,20 @@ PointA:
 	CALL    TurnVariableSpeed
 	CALL    ReadStoreValsA135
 	
-	LOADI   -90		; this is the desired turn amount
+	LOADI   270		; this is the desired turn amount
 	STORE   DManTheta
 	LOAD    FSlow	; this is the desired turn speed
 	STORE   DManTurnVel
 	CALL    TurnVariableSpeed
 	
-	OUT		RESETPOS
-	
 	LOAD	FMid		; Defined below as 350
 	STORE	DVel		; Desired forward velocity
 TestOdForward1init:
-	IN      XPOS        ; X position from odometry
+	CALL	StationaryDet
+	IN      YPOS        ; X position from odometry
 	OUT     LCD         ; Display X position for debugging
-	SUB     TwoMeters    ; Defined below as the robot units for 1 m
-	JNEG    TestOdForward1init       ; Not there yet, keep checking
+	ADD     TwoMeters    ; Defined below as the robot units for 1 m
+	JPOS    TestOdForward1init       ; Not there yet, keep checking
 	; once you get here, you've travelewd 2m straught forward,
 	; so stop and turn left 180 degrees
 	LOADI   0
@@ -193,28 +194,28 @@ TestOdForward1init:
 	OUT     RVELCMD
 	STORE   DVel
 	
-	LOADI   -45		; this is the desired turn amount
+	LOADI   225		; this is the desired turn amount
 	STORE   DManTheta
 	LOAD    FSlow	; this is the desired turn speed
 	STORE   DManTurnVel
 	CALL    TurnVariableSpeed
 	CALL    ReadStoreValsB135
 	
-	LOADI   -90		; this is the desired turn amount
+	LOADI   180		; this is the desired turn amount
 	STORE   DManTheta
 	LOAD    FSlow	; this is the desired turn speed
 	STORE   DManTurnVel
 	CALL    TurnVariableSpeed
 	CALL    ReadStoreValsB90
 	
-	LOADI   -135		; this is the desired turn amount
+	LOADI   135		; this is the desired turn amount
 	STORE   DManTheta
 	LOAD    FSlow	; this is the desired turn speed
 	STORE   DManTurnVel
 	CALL    TurnVariableSpeed
 	CALL    ReadStoreValsB45
 	
-	LOADI   180
+	LOADI   90
 	STORE   DManTheta
 	LOAD    FSlow	; this is the desired turn speed
 	STORE   DManTurnVel
@@ -232,9 +233,10 @@ TestOdometryError:
 	JUMP	TestOdForward1
 	
 TestOdForward1:
-	IN		XPOS
+	CALL	StationaryDet
+	IN		YPOS
 	OUT		LCD
-	JPOS	TestOdForward1
+	JNEG	TestOdForward1
 	
 	; once you get here, you've travelewd 2m straught forward,
 	; so stop and turn left 180 degrees
@@ -243,28 +245,28 @@ TestOdForward1:
 	OUT     RVELCMD
 	STORE   DVel
 	
-	LOADI   -135		; this is the desired turn amount
+	LOADI   135		; this is the desired turn amount
 	STORE   DManTheta
 	LOAD    FSlow	; this is the desired turn speed
 	STORE   DManTurnVel
 	CALL    TurnVariableSpeed
 	CALL    ReadCompareValsA45
 	
-	LOADI   -90		; this is the desired turn amount
+	LOADI   180		; this is the desired turn amount
 	STORE   DManTheta
 	LOAD    FSlow	; this is the desired turn speed
 	STORE   DManTurnVel
 	CALL    TurnVariableSpeed
 	CALL    ReadCompareValsA90
 	
-	LOADI   -45		; this is the desired turn amount
+	LOADI   225		; this is the desired turn amount
 	STORE   DManTheta
 	LOAD    FSlow	; this is the desired turn speed
 	STORE   DManTurnVel
 	CALL    TurnVariableSpeed
 	CALL    ReadCompareValsA135
 	
-	LOADI   0		; this is the desired turn amount
+	LOADI   270		; this is the desired turn amount
 	STORE   DManTheta
 	LOAD    FSlow	; this is the desired turn speed
 	STORE   DManTurnVel
@@ -274,10 +276,10 @@ TestOdForward1:
 	STORE	DVel		; Desired forward velocity
 
 TestOdForward2:	
-	IN      XPOS        ; X position from odometry
+	IN      YPOS        ; X position from odometry
 	OUT     LCD         ; Display X position for debugging
-	SUB     TwoMeters    ; Defined below as the robot units for 1 m
-	JNEG    TestOdForward2       ; Not there yet, keep checking
+	ADD     TwoMeters    ; Defined below as the robot units for 1 m
+	JPOS    TestOdForward2       ; Not there yet, keep checking
 	
 	; stop and turn right 180 degrees
 	LOADI   0
@@ -285,36 +287,81 @@ TestOdForward2:
 	OUT     RVELCMD
 	STORE   DVel
 	
-	LOADI   -45		; this is the desired turn amount
+	LOADI	-90
+	OUT		THETA
+	LOADI   -135		; this is the desired turn amount
 	STORE   DManTheta
 	LOAD    FSlow	; this is the desired turn speed
 	STORE   DManTurnVel
 	CALL    TurnVariableSpeed
 	CALL    ReadCompareValsB135
 	
-	LOADI   -90		; this is the desired turn amount
+	LOADI   -180		; this is the desired turn amount
 	STORE   DManTheta
 	LOAD    FSlow	; this is the desired turn speed
 	STORE   DManTurnVel
 	CALL    TurnVariableSpeed
 	CALL    ReadCompareValsB90
 	
-	LOADI   -135		; this is the desired turn amount
+	LOADI   -225		; this is the desired turn amount
 	STORE   DManTheta
 	LOAD    FSlow	; this is the desired turn speed
 	STORE   DManTurnVel
 	CALL    TurnVariableSpeed
 	CALL    ReadCompareValsB45
 	
-	LOADI   180
+	LOADI   -270
 	STORE   DManTheta
 	LOAD    FSlow	; this is the desired turn speed
 	STORE   DManTurnVel
 	CALL	TurnVariableSpeed
 	LOAD	FMid		; Defined below as 350
 	STORE	DVel		; Desired forward velocity
+	LOADI	90
+	OUT		THETA
 	JUMP	TestOdometryError
 
+
+StationaryDet:
+
+	IN DIST0		   ; Reads in the sonar value
+	SUB LeftDistance	; Slightly less than a feet and a half
+	JNEG AdjustRight
+	
+	; if it is not negative, give it some 
+	
+	SUB Lewa;
+	JPOS AdjustLeft
+	
+Ret:
+	RETURN
+	
+	
+AdjustRight:
+
+
+	; Path adjustment required. need to store distance and then clear it after each successive turn. 
+
+	
+	LOADI  255	; Giving 
+	STORE  DTheta      ; Desired angle 0
+	JUMP RET
+	
+AdjustLeft:
+
+
+	; Path adjustment required. need to store distance and then clear it after each successive turn. 
+	LOADI  285
+	STORE  DTheta      ; Desired angle 0
+	JUMP RET
+
+	
+		
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;SONAR STORE AND COMPARE CODE;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	
+	
 ;function to perform sonar reading using front four sensors
 ;assumes that the robot is facing the correct direction
 ;it will store the value in an array 
@@ -1688,6 +1735,12 @@ Mask6:    DW &B01000000
 Mask7:    DW &B10000000
 LowByte:  DW &HFF      ; binary 00000000 1111111
 LowNibl:  DW &HF       ; 0000 0000 0000 1111
+
+
+ChannelDistance:	DW 879
+LeftDistance: DW 725
+Lewa: DW 40
+CorrectMove: DW 100
 
 ; some useful movement values
 DistanceA: DW 2133
