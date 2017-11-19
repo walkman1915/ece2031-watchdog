@@ -89,7 +89,7 @@ LOAD  mask2         ;load in mask to enable the sonar sensor 2                  
 OR    mask3         ;or the two masks so that I can enable both sensors              ;;
 OUT   SONAREN       ;enable the two sensors for use in software interrupts for sonar ;;
 OUT   SONARINT      ;only allow these sonar sensors to cause an interrupt			 ;;
-LOADI 152           ;load 6 inches in the AC										 ;;
+LOADI 304           ;load 1 foot in the AC										 ;;
 OUT   SONALARM      ;set this as the distance that causes interrupt from the sensors ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -826,7 +826,8 @@ FoundIntruder:
 ;with the same value for velocity it had before 
 
 
-SIR: 
+SIR:
+   CLI   &B0001       ;temporarily turn off interrupts
    LOAD  DVel         ;load the current velocity of the robot
    STORE SonarVel     ;store the old velocity to restore later
    LOAD  Zero         ;load zero in the AC
@@ -834,16 +835,17 @@ SIR:
    CALL  FoundIntruder ;beep because there must be an intruder here
 IntruderDist:
    IN    Dist2        ;grab the distance from sensor 2
-   ADDI  -152         ;subtract 6 inches from the distance
+   ADDI  -304         ;subtract 6 inches from the distance
    JNEG  IntruderDist ;if intruder still within 6 inches then keep waiting
    JZERO IntruderDist ;do the same thing if exactly 6 inches away
    IN    Dist3        ;grab the distance from sensor 3
-   ADDI  -152         ;subtract 6 inches from the distance
+   ADDI  -304         ;subtract 6 inches from the distance
    JNEG  IntruderDist ;if intruder still within 6 inches then keep waiting
    JZERO IntruderDist ;if the intruder still present then keep waiting 
    
    LOAD  SonarVel     ;load the original velocity
    STORE DVel         ;tell the robot to go that speed
+   SEI   &B0001       ;restart interrupts
    
    RETI			      ;return to where interrupted
 	
